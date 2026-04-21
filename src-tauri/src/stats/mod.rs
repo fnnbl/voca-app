@@ -310,8 +310,9 @@ mod tests {
         assert_eq!(s.providers[0].name, "groq");
         assert_eq!(s.providers[0].count, 3);
         assert!((s.providers[0].share - 0.6).abs() < 1e-9);
-        assert_eq!(s.providers[1].name, "local");
-        assert_eq!(s.providers[2].name, "deepgram");
+        // Tie on count=1 → alphabetical order
+        assert_eq!(s.providers[1].name, "deepgram");
+        assert_eq!(s.providers[2].name, "local");
     }
 
     #[test]
