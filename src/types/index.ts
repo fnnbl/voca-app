@@ -47,6 +47,10 @@ export interface Settings {
     theme: 'light' | 'dark' | 'system'
     audioInputDevice: string | null
   }
+  privacy: {
+    historyTracking: boolean
+    targetAppTracking: boolean
+  }
 }
 
 export type AppState = 'idle' | 'recording' | 'processing' | 'inserting' | 'error'

@@ -66,6 +66,13 @@
       "inputDevice": "Eingabegerät",
       "inputDeviceDefault": "Standard (Systemvorgabe)"
     },
+    "privacy": {
+      "section": "Datenschutz",
+      "historyTracking": "Verlauf speichern",
+      "historyTrackingDesc": "Transkripte werden lokal gespeichert und in History und Stats angezeigt.",
+      "targetAppTracking": "Ziel-App erfassen",
+      "targetAppTrackingDesc": "Merkt sich, in welche App du einfügst – nur für die \"Häufigstes Ziel\"-Statistik. Bleibt lokal."
+    },
     "transcription": {
       "method": "Methode",
       "mode": {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 
 type ProviderStat = { name: string; count: number; share: number }
+type TargetAppStat = { name: string; count: number; share: number }
 
 type StatsSummary = {
   totalWords: number
@@ -17,6 +18,8 @@ type StatsSummary = {
   aiPolishRate: number
   providers: ProviderStat[]
   activity30d: number[]
+  topTargetApp: TargetAppStat | null
+  targetAppCoverage: number
 }
 
 const EMPTY: StatsSummary = {
@@ -33,6 +36,8 @@ const EMPTY: StatsSummary = {
   aiPolishRate: 0,
   providers: [],
   activity30d: Array(30).fill(0),
+  topTargetApp: null,
+  targetAppCoverage: 0,
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -117,6 +122,11 @@ export function StatsPage() {
           <div className="desc">{formatLongestDate(stats.longestSessionTimestampMs)}</div>
         </div>
         <div className="cell">
+          <div className="k">Häufigstes Ziel</div>
+          <div className="v">{stats.topTargetApp ? stats.topTargetApp.name : '—'}</div>
+          <div className="desc">{formatTargetAppDesc(stats.topTargetApp, stats.targetAppCoverage)}</div>
+        </div>
+        <div className="cell">
           <div className="k">AI-Polish Quote</div>
           <div className="v">{Math.round(stats.aiPolishRate * 100)}%</div>
           <div className="desc">Anteil mit Enhancement</div>
@@ -169,6 +179,15 @@ function formatLongestDate(ms: number | null): string {
   if (!ms) return 'Noch keine Sessions'
   const d = new Date(ms)
   return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long' }).format(d)
+}
+
+function formatTargetAppDesc(top: TargetAppStat | null, coverage: number): string {
+  if (!top) {
+    return coverage === 0
+      ? 'Tracking deaktiviert oder noch keine Daten'
+      : 'Noch keine Daten'
+  }
+  return `${Math.round(top.share * 100)}% aller erfassten Ziele`
 }
 
 function formatWeekTrend(thisWeek: number, lastWeek: number): string {

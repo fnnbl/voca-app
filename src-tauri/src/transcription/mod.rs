@@ -101,6 +101,21 @@ pub async fn process(app: AppHandle) {
 
     let paste_text = format!("{} ", final_text.trim());
 
+    let history_tracking = settings["privacy"]["historyTracking"]
+        .as_bool()
+        .unwrap_or(true);
+    let target_app_tracking = settings["privacy"]["targetAppTracking"]
+        .as_bool()
+        .unwrap_or(false);
+
+    // Capture must happen while the user's target app is still frontmost —
+    // i.e. before we simulate Ctrl+V. Skip entirely when either toggle is off.
+    let target_app = if history_tracking && target_app_tracking {
+        crate::target_app::capture()
+    } else {
+        None
+    };
+
     transition_to_inserting(&app);
     if let Err(e) = crate::clipboard::paste(&paste_text) {
         crate::errors::emit(&app, "PASTE_FAILED", &e);
@@ -109,19 +124,22 @@ pub async fn process(app: AppHandle) {
     }
     transition_to_idle(&app);
 
-    let timestamp_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let _ = crate::storage::append_history_entry(&app, crate::storage::HistoryEntry {
-        id: timestamp_ms.to_string(),
-        timestamp_ms,
-        text: final_text.trim().to_owned(),
-        enhanced: was_enhanced,
-        duration_secs,
-        word_count,
-        provider,
-    });
+    if history_tracking {
+        let timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let _ = crate::storage::append_history_entry(&app, crate::storage::HistoryEntry {
+            id: timestamp_ms.to_string(),
+            timestamp_ms,
+            text: final_text.trim().to_owned(),
+            enhanced: was_enhanced,
+            duration_secs,
+            word_count,
+            provider,
+            target_app,
+        });
+    }
 
     let _ = app.emit("transcription-result", TranscriptionResultPayload { text: final_text.trim().to_owned() });
 }
