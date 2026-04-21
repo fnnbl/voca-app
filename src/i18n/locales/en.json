@@ -66,6 +66,13 @@
       "inputDevice": "Input device",
       "inputDeviceDefault": "Default (system)"
     },
+    "privacy": {
+      "section": "Privacy",
+      "historyTracking": "Keep transcript history",
+      "historyTrackingDesc": "Transcripts are stored locally and shown in History and Stats.",
+      "targetAppTracking": "Record target app",
+      "targetAppTrackingDesc": "Remembers which app you paste into — used only for the \"Most common target\" stat. Stays local."
+    },
     "transcription": {
       "method": "Method",
       "mode": {

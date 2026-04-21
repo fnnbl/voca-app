@@ -43,6 +43,8 @@ pub struct HistoryEntry {
     pub duration_secs: f32,
     pub word_count: u32,
     pub provider: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_app: Option<String>,
 }
 
 // ── Path helpers ───────────────────────────────────────────────────────────────
@@ -112,7 +114,35 @@ pub(crate) fn load_from_path(path: &Path) -> Result<serde_json::Value, String> {
         return Ok(defaults());
     }
     let content = std::fs::read_to_string(path).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
-    serde_json::from_str(&content).map_err(|e| format!("STORAGE_ERROR: {e}"))
+    let loaded: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    Ok(merge_defaults(loaded, defaults()))
+}
+
+/// Deep-merge `loaded` with `defaults`: any missing key in `loaded` is taken
+/// from `defaults`. Keeps the loaded values intact. Lets new settings sections
+/// appear for existing users without wiping their prior choices.
+fn merge_defaults(
+    mut loaded: serde_json::Value,
+    defaults: serde_json::Value,
+) -> serde_json::Value {
+    if let (serde_json::Value::Object(ref mut loaded_obj), serde_json::Value::Object(defaults_obj)) =
+        (&mut loaded, defaults)
+    {
+        for (k, default_v) in defaults_obj {
+            match loaded_obj.get_mut(&k) {
+                None => {
+                    loaded_obj.insert(k, default_v);
+                }
+                Some(existing) if existing.is_object() && default_v.is_object() => {
+                    let merged = merge_defaults(existing.take(), default_v);
+                    *existing = merged;
+                }
+                Some(_) => {}
+            }
+        }
+    }
+    loaded
 }
 
 pub(crate) fn save_to_path(path: &Path, value: &serde_json::Value) -> Result<(), String> {
@@ -187,6 +217,10 @@ pub(crate) fn defaults() -> serde_json::Value {
             "onboardingCompleted": false,
             "theme": "system",
             "audioInputDevice": null
+        },
+        "privacy": {
+            "historyTracking": true,
+            "targetAppTracking": false
         }
     })
 }
@@ -240,6 +274,46 @@ mod tests {
     #[test]
     fn defaults_ai_enhancement_disabled() {
         assert_eq!(defaults()["aiEnhancement"]["enabled"], false);
+    }
+
+    #[test]
+    fn defaults_privacy_history_on_target_app_off() {
+        let d = defaults();
+        assert_eq!(d["privacy"]["historyTracking"], true);
+        assert_eq!(d["privacy"]["targetAppTracking"], false);
+    }
+
+    // ── merge_defaults ────────────────────────────────────────────────────────
+
+    #[test]
+    fn merge_fills_missing_top_level_section() {
+        let loaded = serde_json::json!({
+            "general": { "language": "en", "autostart": false, "onboardingCompleted": false, "theme": "system", "audioInputDevice": null }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["privacy"]["historyTracking"], true);
+        assert_eq!(merged["general"]["language"], "en");
+    }
+
+    #[test]
+    fn merge_preserves_loaded_values_over_defaults() {
+        let loaded = serde_json::json!({
+            "general": { "language": "en" }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["general"]["language"], "en");
+        // Missing sibling keys are filled in from defaults
+        assert_eq!(merged["general"]["theme"], "system");
+    }
+
+    #[test]
+    fn merge_fills_missing_nested_keys() {
+        let loaded = serde_json::json!({
+            "privacy": { "historyTracking": false }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["privacy"]["historyTracking"], false);
+        assert_eq!(merged["privacy"]["targetAppTracking"], false);
     }
 
     // ── load_from_path ────────────────────────────────────────────────────────

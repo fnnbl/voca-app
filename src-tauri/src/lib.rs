@@ -9,6 +9,7 @@ pub mod local_transcription;
 pub mod shortcut;
 pub mod stats;
 pub mod storage;
+pub mod target_app;
 pub mod transcription;
 
 use std::sync::{Arc, Mutex};

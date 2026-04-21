@@ -17,6 +17,14 @@ pub struct ProviderStat {
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TargetAppStat {
+    pub name: String,
+    pub count: u64,
+    pub share: f64,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatsSummary {
     pub total_words: u64,
     pub total_duration_secs: f64,
@@ -31,6 +39,8 @@ pub struct StatsSummary {
     pub ai_polish_rate: f64,
     pub providers: Vec<ProviderStat>,
     pub activity_30d: Vec<u64>,
+    pub top_target_app: Option<TargetAppStat>,
+    pub target_app_coverage: f64,
 }
 
 pub fn aggregate(history: &[HistoryEntry], now_ms: i64) -> StatsSummary {
@@ -52,6 +62,8 @@ pub fn aggregate(history: &[HistoryEntry], now_ms: i64) -> StatsSummary {
     let mut longest: Option<(f32, u64)> = None;
     let mut enhanced_count: u64 = 0;
     let mut provider_counts: HashMap<String, u64> = HashMap::new();
+    let mut target_app_counts: HashMap<String, u64> = HashMap::new();
+    let mut entries_with_target_app: u64 = 0;
     let mut activity = vec![0u64; ACTIVITY_DAYS];
 
     for entry in history {
@@ -61,6 +73,10 @@ pub fn aggregate(history: &[HistoryEntry], now_ms: i64) -> StatsSummary {
             enhanced_count += 1;
         }
         *provider_counts.entry(entry.provider.clone()).or_insert(0) += 1;
+        if let Some(target) = entry.target_app.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            *target_app_counts.entry(target.to_owned()).or_insert(0) += 1;
+            entries_with_target_app += 1;
+        }
 
         let is_new_longest = match &longest {
             None => true,
@@ -122,6 +138,20 @@ pub fn aggregate(history: &[HistoryEntry], now_ms: i64) -> StatsSummary {
         None => (0.0, None),
     };
 
+    let top_target_app = target_app_counts
+        .into_iter()
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(&a.0)))
+        .map(|(name, count)| TargetAppStat {
+            share: count as f64 / entries_with_target_app.max(1) as f64,
+            count,
+            name,
+        });
+    let target_app_coverage = if history.is_empty() {
+        0.0
+    } else {
+        entries_with_target_app as f64 / history.len() as f64
+    };
+
     StatsSummary {
         total_words,
         total_duration_secs,
@@ -136,6 +166,8 @@ pub fn aggregate(history: &[HistoryEntry], now_ms: i64) -> StatsSummary {
         ai_polish_rate,
         providers,
         activity_30d: activity,
+        top_target_app,
+        target_app_coverage,
     }
 }
 
@@ -170,6 +202,20 @@ mod tests {
             duration_secs: duration,
             word_count: words,
             provider: provider.into(),
+            target_app: None,
+        }
+    }
+
+    fn entry_with_app(ts_ms: u64, provider: &str, app: Option<&str>) -> HistoryEntry {
+        HistoryEntry {
+            id: format!("id-{ts_ms}"),
+            timestamp_ms: ts_ms,
+            text: String::new(),
+            enhanced: false,
+            duration_secs: 10.0,
+            word_count: 10,
+            provider: provider.into(),
+            target_app: app.map(str::to_owned),
         }
     }
 
@@ -192,6 +238,78 @@ mod tests {
         assert_eq!(s.longest_session_timestamp_ms, None);
         assert_eq!(s.activity_30d.len(), ACTIVITY_DAYS);
         assert!(s.providers.is_empty());
+        assert!(s.top_target_app.is_none());
+        assert_eq!(s.target_app_coverage, 0.0);
+    }
+
+    #[test]
+    fn aggregate_top_target_app_picks_most_frequent() {
+        let now = now_ms();
+        let hist = vec![
+            entry_with_app(now as u64, "groq", Some("Slack")),
+            entry_with_app(now as u64, "groq", Some("Chrome")),
+            entry_with_app(now as u64, "groq", Some("Slack")),
+            entry_with_app(now as u64, "groq", Some("Slack")),
+        ];
+        let s = aggregate(&hist, now);
+        let top = s.top_target_app.unwrap();
+        assert_eq!(top.name, "Slack");
+        assert_eq!(top.count, 3);
+        assert!((top.share - 0.75).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aggregate_top_target_app_ignores_entries_without_target() {
+        let now = now_ms();
+        let hist = vec![
+            entry_with_app(now as u64, "groq", None),
+            entry_with_app(now as u64, "groq", None),
+            entry_with_app(now as u64, "groq", Some("Chrome")),
+        ];
+        let s = aggregate(&hist, now);
+        let top = s.top_target_app.unwrap();
+        assert_eq!(top.name, "Chrome");
+        assert_eq!(top.count, 1);
+        // share is relative to entries that have a target app, not total history
+        assert!((top.share - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aggregate_top_target_app_none_when_all_entries_lack_target() {
+        let now = now_ms();
+        let hist = vec![
+            entry_with_app(now as u64, "groq", None),
+            entry_with_app(now as u64, "groq", None),
+        ];
+        let s = aggregate(&hist, now);
+        assert!(s.top_target_app.is_none());
+        assert_eq!(s.target_app_coverage, 0.0);
+    }
+
+    #[test]
+    fn aggregate_target_app_coverage_fraction_of_history() {
+        let now = now_ms();
+        let hist = vec![
+            entry_with_app(now as u64, "groq", Some("Slack")),
+            entry_with_app(now as u64, "groq", None),
+            entry_with_app(now as u64, "groq", None),
+            entry_with_app(now as u64, "groq", Some("Chrome")),
+        ];
+        let s = aggregate(&hist, now);
+        assert!((s.target_app_coverage - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aggregate_target_app_ignores_whitespace_only_values() {
+        let now = now_ms();
+        let hist = vec![
+            entry_with_app(now as u64, "groq", Some("   ")),
+            entry_with_app(now as u64, "groq", Some("Slack")),
+        ];
+        let s = aggregate(&hist, now);
+        let top = s.top_target_app.unwrap();
+        assert_eq!(top.name, "Slack");
+        assert_eq!(top.count, 1);
     }
 
     #[test]

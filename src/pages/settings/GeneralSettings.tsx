@@ -60,6 +60,20 @@ export function GeneralSettings({ settings, onChange }: Props) {
     onChange({ ...settings, general: { ...settings.general, onboardingCompleted: false } })
   }
 
+  const historyTracking = settings.privacy?.historyTracking ?? true
+  const targetAppTracking = settings.privacy?.targetAppTracking ?? false
+
+  function togglePrivacy(key: 'historyTracking' | 'targetAppTracking') {
+    const current = { historyTracking, targetAppTracking }
+    const next = { ...current, [key]: !current[key] }
+    // Turning the master off implicitly disables the sub-toggle so we never
+    // persist a contradictory "history off, target-app on" state.
+    if (key === 'historyTracking' && !next.historyTracking) {
+      next.targetAppTracking = false
+    }
+    onChange({ ...settings, privacy: next })
+  }
+
   return (
     <div>
       <p className="page-eyebrow">einstellungen</p>
@@ -129,6 +143,35 @@ export function GeneralSettings({ settings, onChange }: Props) {
         >
           {t('settings.general.onboarding')}
         </button>
+      </SettingRow>
+
+      <p className="sec-head">{t('settings.privacy.section')}</p>
+
+      <SettingRow
+        label={t('settings.privacy.historyTracking')}
+        description={t('settings.privacy.historyTrackingDesc')}
+      >
+        <button
+          role="switch"
+          aria-checked={historyTracking}
+          onClick={() => togglePrivacy('historyTracking')}
+          className={`v-switch${historyTracking ? ' on' : ''}`}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.privacy.targetAppTracking')}
+        description={t('settings.privacy.targetAppTrackingDesc')}
+      >
+        <button
+          role="switch"
+          aria-checked={targetAppTracking && historyTracking}
+          aria-disabled={!historyTracking}
+          disabled={!historyTracking}
+          onClick={() => togglePrivacy('targetAppTracking')}
+          className={`v-switch${targetAppTracking && historyTracking ? ' on' : ''}`}
+          style={{ opacity: historyTracking ? 1 : 0.4, cursor: historyTracking ? 'pointer' : 'not-allowed' }}
+        />
       </SettingRow>
     </div>
   )
