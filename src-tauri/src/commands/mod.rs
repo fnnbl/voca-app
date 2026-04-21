@@ -267,6 +267,13 @@ pub fn get_history(app: tauri::AppHandle) -> Result<Vec<crate::storage::HistoryE
 }
 
 #[tauri::command]
+pub fn get_stats(app: tauri::AppHandle) -> Result<crate::stats::StatsSummary, String> {
+    let history = crate::storage::load_history(&app)?;
+    let now_ms = chrono::Local::now().timestamp_millis();
+    Ok(crate::stats::aggregate(&history, now_ms))
+}
+
+#[tauri::command]
 pub fn clear_history(app: tauri::AppHandle) -> Result<(), String> {
     crate::storage::clear_history(&app)
 }
