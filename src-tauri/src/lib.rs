@@ -7,6 +7,7 @@ pub mod hotkey;
 pub mod keychain;
 pub mod local_transcription;
 pub mod shortcut;
+pub mod stats;
 pub mod storage;
 pub mod transcription;
 
@@ -170,6 +171,7 @@ pub fn run() {
             commands::set_autostart,
             commands::get_history,
             commands::clear_history,
+            commands::get_stats,
             commands::set_window_theme,
             commands::list_audio_devices,
             commands::set_audio_device,
