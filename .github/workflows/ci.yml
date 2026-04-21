@@ -1,4 +1,4 @@
-name: Build
+name: CI
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: ['**']
 
 jobs:
-  build:
-    name: Type-check, Lint & Rust check
+  frontend:
+    name: Frontend (type-check, lint, vitest)
     runs-on: ubuntu-latest
 
     steps:
@@ -29,6 +29,16 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Vitest
+        run: npm test
+
+  rust:
+    name: Rust (check + test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Install Linux system dependencies
         run: |
           sudo apt-get update
@@ -36,7 +46,6 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libssl-dev \
             libasound2-dev \
             libdbus-1-dev \
             libxcb1-dev \
@@ -67,24 +76,10 @@ jobs:
       - name: Create dist placeholder
         run: mkdir -p dist
 
-      - name: Rust check
+      - name: cargo check
         working-directory: src-tauri
         run: cargo check
 
-      - name: Rust tests
+      - name: cargo test
         working-directory: src-tauri
-        run: cargo test --lib
-
-      - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --locked
-
-      - name: Coverage report (informational)
-        working-directory: src-tauri
-        run: cargo tarpaulin --lib --config .tarpaulin.toml --out Xml
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: src-tauri/cobertura.xml
+        run: cargo test
