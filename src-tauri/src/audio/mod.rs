@@ -1,7 +1,14 @@
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use tauri::{AppHandle, Emitter};
+
+use crate::AudioLevelPayload;
+
+const AUDIO_LEVEL_EMIT_INTERVAL: Duration = Duration::from_millis(33);
+const AUDIO_LEVEL_GAIN: f32 = 4.0;
 
 pub struct AudioRecordingState {
     stream: Mutex<Option<cpal::Stream>>,
@@ -34,7 +41,11 @@ pub fn list_input_devices() -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub fn start(audio: &AudioRecordingState, device_name: Option<&str>) -> Result<(), String> {
+pub fn start(
+    audio: &AudioRecordingState,
+    device_name: Option<&str>,
+    app: &AppHandle,
+) -> Result<(), String> {
     let host = cpal::default_host();
     let device = if let Some(name) = device_name {
         host.input_devices()
@@ -56,7 +67,7 @@ pub fn start(audio: &AudioRecordingState, device_name: Option<&str>) -> Result<(
     let buffer = audio.buffer.clone();
     buffer.lock().unwrap().clear();
 
-    let stream = build_stream(&device, &config, buffer)?;
+    let stream = build_stream(&device, &config, buffer, app.clone())?;
     stream.play().map_err(|e| format!("RECORDING_FAILED: {e}"))?;
 
     *audio.stream.lock().unwrap() = Some(stream);
@@ -77,43 +88,85 @@ fn build_stream(
     device: &cpal::Device,
     config: &cpal::SupportedStreamConfig,
     buffer: Arc<Mutex<Vec<f32>>>,
+    app: AppHandle,
 ) -> Result<cpal::Stream, String> {
     let err_fn = |err| log::error!("audio stream error: {err}");
     let cfg: cpal::StreamConfig = config.clone().into();
+    let last_emit = Arc::new(Mutex::new(Instant::now()));
 
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => device.build_input_stream(
-            &cfg,
-            move |data: &[f32], _| buffer.lock().unwrap().extend_from_slice(data),
-            err_fn,
-            None,
-        ),
-        cpal::SampleFormat::I16 => device.build_input_stream(
-            &cfg,
-            move |data: &[i16], _| {
-                buffer
-                    .lock()
-                    .unwrap()
-                    .extend(data.iter().map(|&s| s as f32 / i16::MAX as f32))
-            },
-            err_fn,
-            None,
-        ),
-        cpal::SampleFormat::U16 => device.build_input_stream(
-            &cfg,
-            move |data: &[u16], _| {
-                buffer
-                    .lock()
-                    .unwrap()
-                    .extend(data.iter().map(|&s| (s as f32 - 32768.0) / 32768.0))
-            },
-            err_fn,
-            None,
-        ),
+        cpal::SampleFormat::F32 => {
+            let emit_state = last_emit.clone();
+            let emit_app = app.clone();
+            device.build_input_stream(
+                &cfg,
+                move |data: &[f32], _| {
+                    buffer.lock().unwrap().extend_from_slice(data);
+                    maybe_emit_level(&emit_app, &emit_state, data);
+                },
+                err_fn,
+                None,
+            )
+        }
+        cpal::SampleFormat::I16 => {
+            let emit_state = last_emit.clone();
+            let emit_app = app.clone();
+            device.build_input_stream(
+                &cfg,
+                move |data: &[i16], _| {
+                    let floats: Vec<f32> =
+                        data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                    buffer.lock().unwrap().extend_from_slice(&floats);
+                    maybe_emit_level(&emit_app, &emit_state, &floats);
+                },
+                err_fn,
+                None,
+            )
+        }
+        cpal::SampleFormat::U16 => {
+            let emit_state = last_emit.clone();
+            let emit_app = app.clone();
+            device.build_input_stream(
+                &cfg,
+                move |data: &[u16], _| {
+                    let floats: Vec<f32> = data
+                        .iter()
+                        .map(|&s| (s as f32 - 32768.0) / 32768.0)
+                        .collect();
+                    buffer.lock().unwrap().extend_from_slice(&floats);
+                    maybe_emit_level(&emit_app, &emit_state, &floats);
+                },
+                err_fn,
+                None,
+            )
+        }
         fmt => return Err(format!("RECORDING_FAILED: unsupported sample format {fmt:?}")),
     };
 
     stream.map_err(|e| format!("RECORDING_FAILED: {e}"))
+}
+
+fn maybe_emit_level(app: &AppHandle, last_emit: &Arc<Mutex<Instant>>, samples: &[f32]) {
+    let now = Instant::now();
+    {
+        let mut last = last_emit.lock().unwrap();
+        if now.duration_since(*last) < AUDIO_LEVEL_EMIT_INTERVAL {
+            return;
+        }
+        *last = now;
+    }
+
+    let level = compute_level(samples);
+    let _ = app.emit("audio-level", AudioLevelPayload { level });
+}
+
+pub fn compute_level(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let sum_sq: f32 = samples.iter().map(|&s| s * s).sum();
+    let rms = (sum_sq / samples.len() as f32).sqrt();
+    (rms * AUDIO_LEVEL_GAIN).clamp(0.0, 1.0)
 }
 
 fn encode_wav(samples: &[f32], sample_rate: u32, channels: u16) -> Result<Vec<u8>, String> {
@@ -207,5 +260,38 @@ mod tests {
             let reconstructed = *dec as f32 / i16::MAX as f32;
             assert!((orig - reconstructed).abs() < 0.001, "sample mismatch: {orig} vs {reconstructed}");
         }
+    }
+
+    #[test]
+    fn compute_level_returns_zero_for_empty() {
+        assert_eq!(compute_level(&[]), 0.0);
+    }
+
+    #[test]
+    fn compute_level_returns_zero_for_silence() {
+        let samples = vec![0.0f32; 512];
+        assert_eq!(compute_level(&samples), 0.0);
+    }
+
+    #[test]
+    fn compute_level_scales_rms_by_gain_and_clamps() {
+        // Constant 0.5 amplitude → RMS = 0.5 → 0.5 * 4.0 = 2.0 → clamps to 1.0
+        let samples = vec![0.5f32; 512];
+        assert_eq!(compute_level(&samples), 1.0);
+    }
+
+    #[test]
+    fn compute_level_matches_rms_for_quiet_signal() {
+        // Constant 0.1 amplitude → RMS = 0.1 → 0.1 * 4.0 = 0.4 (within clamp)
+        let samples = vec![0.1f32; 512];
+        let level = compute_level(&samples);
+        assert!((level - 0.4).abs() < 1e-5, "got {level}");
+    }
+
+    #[test]
+    fn compute_level_symmetric_for_negative_samples() {
+        let pos = vec![0.1f32; 512];
+        let neg = vec![-0.1f32; 512];
+        assert!((compute_level(&pos) - compute_level(&neg)).abs() < 1e-6);
     }
 }

@@ -14,10 +14,13 @@ const LABELS: Record<AppState, string> = {
   error:      'state.error',
 }
 
+const WAVE_BARS = 14
+
 export default function StatusBar() {
   const { t } = useTranslation()
   const [appState, setAppState] = useState<AppState>('idle')
   const [elapsed, setElapsed] = useState(0)
+  const [levels, setLevels] = useState<number[]>([])
   const startRef = useRef<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -34,6 +37,17 @@ export default function StatusBar() {
   }, [])
 
   useEffect(() => {
+    const unlisten = listen<{ level: number }>('audio-level', (e) => {
+      setLevels((prev) => {
+        const next = prev.length >= WAVE_BARS ? prev.slice(1) : prev.slice()
+        next.push(e.payload.level)
+        return next
+      })
+    })
+    return () => { unlisten.then((fn) => fn()) }
+  }, [])
+
+  useEffect(() => {
     if (appState === 'recording') {
       startRef.current = Date.now()
       timerRef.current = setInterval(() => {
@@ -43,6 +57,7 @@ export default function StatusBar() {
       if (timerRef.current) clearInterval(timerRef.current)
       setElapsed(0)
       startRef.current = null
+      setLevels([])
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [appState])
@@ -63,7 +78,7 @@ export default function StatusBar() {
             <span className="ember" />
             REC
           </div>
-          <Waveform />
+          <Waveform levels={levels} bars={WAVE_BARS} />
           <span className="pill-timer">{formatTime(elapsed)}</span>
         </div>
       ) : (
@@ -78,20 +93,18 @@ export default function StatusBar() {
   )
 }
 
-function Waveform({ bars = 14 }: { bars?: number }) {
-  const seeds = Array.from({ length: bars }, (_, i) =>
-    (Math.sin(i * 1.7) + Math.cos(i * 0.7)) * 0.5 + 0.5
-  )
+function Waveform({ levels, bars }: { levels: number[]; bars: number }) {
+  const padded = Array.from({ length: bars }, (_, i) => {
+    const offset = levels.length - bars + i
+    return offset >= 0 ? levels[offset] : 0
+  })
   return (
     <div className="waveform">
-      {seeds.map((_, i) => (
+      {padded.map((level, i) => (
         <span
           key={i}
           className="bar"
-          style={{
-            animationDelay: `${(i * 0.07) % 1.1}s`,
-            animationDuration: `${0.9 + (i % 5) * 0.08}s`,
-          }}
+          style={{ height: `${Math.max(16, level * 100)}%` }}
         />
       ))}
     </div>
