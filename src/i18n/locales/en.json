@@ -1,0 +1,145 @@
+{
+  "app": {
+    "name": "VOCA"
+  },
+  "state": {
+    "idle": "Ready",
+    "recording": "Recording",
+    "processing": "Processing",
+    "inserting": "Inserting text",
+    "error": "Error"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to VOCA",
+      "description": "Press once to start recording, press again to stop.",
+      "next": "Get started"
+    },
+    "transcription": {
+      "title": "Set up transcription",
+      "cloud": "Cloud (OpenAI Whisper API)",
+      "cloudDescription": "High quality, requires API key",
+      "local": "Local (whisper.cpp)",
+      "localDescription": "Offline, free, slightly more setup",
+      "offlineMode": "Use offline instead",
+      "offlineNote": "Runs on-device. Slower and less accurate than cloud services.",
+      "apiKeyPlaceholder": "sk-...",
+      "next": "Continue"
+    },
+    "shortcut": {
+      "title": "Set up shortcut",
+      "description": "Hold to record, release to stop. Double-tap quickly to toggle recording on/off.",
+      "next": "Continue"
+    },
+    "test": {
+      "title": "Quick test",
+      "description": "Press your shortcut and say something.",
+      "ready": "VOCA is ready!"
+    },
+    "aiEnhancement": {
+      "title": "AI Enhancement",
+      "description": "Automatically improves punctuation and formatting.",
+      "skip": "Skip",
+      "setup": "Set up",
+      "enable": "Enable AI Enhancement",
+      "skipForNow": "Skip for now"
+    },
+    "finish": "Save & Finish"
+  },
+  "settings": {
+    "title": "Settings",
+    "nav": {
+      "general": "General",
+      "transcription": "Transcription",
+      "ai": "AI Enhancement",
+      "snippets": "Snippets",
+      "dictionary": "Dictionary"
+    },
+    "general": {
+      "language": "Language",
+      "theme": "Theme",
+      "themeDark": "Dark",
+      "themeLight": "Light",
+      "themeSystem": "System",
+      "autostart": "Start at login",
+      "onboarding": "Restart onboarding",
+      "inputDevice": "Input device",
+      "inputDeviceDefault": "Default (system)"
+    },
+    "transcription": {
+      "method": "Method",
+      "mode": {
+        "cloud": "Cloud",
+        "local": "Local"
+      },
+      "apiKey": "API Key",
+      "localModel": "Local model",
+      "localModelDescription": "Runs entirely on your device – no internet required",
+      "download": "Download",
+      "downloaded": "Installed",
+      "deleteModel": "Remove",
+      "cancelDownload": "Cancel",
+      "cloudProvider": "Provider",
+      "cloudModel": "Model",
+      "cloudCustomEndpoint": "Endpoint",
+      "provider": {
+        "openai": "OpenAI Whisper",
+        "groq": "Groq Whisper",
+        "deepgram": "Deepgram",
+        "elevenlabs": "ElevenLabs",
+        "gemini": "Gemini",
+        "custom": "Custom"
+      }
+    },
+    "shortcut": {
+      "recording": "Press keys…",
+      "description": "Hold to record (push-to-talk) · Double-tap to toggle"
+    },
+    "ai": {
+      "enabled": "Enable AI enhancement",
+      "provider": "Provider",
+      "model": "Model",
+      "apiKey": "API Key",
+      "endpoint": "Endpoint",
+      "activePrompt": "Active prompt",
+      "promptsDescription": "Click to activate",
+      "addPrompt": "Add prompt",
+      "promptName": "Name",
+      "promptText": "Prompt text",
+      "ollamaNote": "Make sure Ollama is running and the selected model is downloaded.",
+      "skipShort": "Skip short transcriptions",
+      "skipShortDescription": "Very short recordings are inserted without AI enhancement",
+      "minWords": "Minimum",
+      "words": "words"
+    },
+    "snippets": {
+      "title": "Snippets",
+      "add": "Add snippet",
+      "trigger": "Trigger",
+      "output": "Output",
+      "name": "Name",
+      "enabled": "Enabled"
+    },
+    "dictionary": {
+      "title": "Dictionary",
+      "add": "Add entry",
+      "word": "Term"
+    }
+  },
+  "errors": {
+    "apiKeyInvalid": "Invalid API key. Please check in settings.",
+    "noInternet": "No internet connection. Please check your connection.",
+    "microphoneUnavailable": "Microphone unavailable. Please check permissions in system settings.",
+    "recordingFailed": "Recording failed.",
+    "shortcutConflict": "Could not register shortcut. Please choose a different shortcut.",
+    "aiEnhancementFailed": "AI enhancement failed – original text was used."
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close"
+  }
+}

@@ -1,0 +1,22 @@
+[default]
+# Exclude Tauri plumbing that requires a running app context.
+# These files contain only IPC command registrations, plugin setup,
+# and event handlers — no independent business logic to unit-test.
+exclude-files = [
+    "src/main.rs",
+    "src/lib.rs",
+    "src/commands/mod.rs",
+    "src/shortcut/mod.rs",
+    "src/clipboard/mod.rs",
+]
+timeout = "180s"
+
+# Coverage threshold note:
+# Unit tests realistically cover ~30-35% of this codebase.
+# The remaining ~65-70% consists of:
+#   - Async HTTP pipeline functions (transcription, AI enhancement)
+#   - OS keychain calls (keyring crate)
+#   - Audio hardware I/O (cpal streams)
+#   - AppHandle-dependent Tauri glue code
+# These require integration tests (tauri-driver + WebDriver) to cover.
+# Threshold is set to the honest unit-testable portion.

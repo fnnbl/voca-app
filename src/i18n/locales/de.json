@@ -1,0 +1,145 @@
+{
+  "app": {
+    "name": "VOCA"
+  },
+  "state": {
+    "idle": "Bereit",
+    "recording": "Aufnahme läuft",
+    "processing": "Verarbeitung",
+    "inserting": "Text wird eingefügt",
+    "error": "Fehler"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Willkommen bei VOCA",
+      "description": "Drücke deinen Shortcut, sprich – Text erscheint direkt im aktiven Fenster.",
+      "next": "Los geht's"
+    },
+    "transcription": {
+      "title": "Transkription einrichten",
+      "cloud": "Cloud (OpenAI Whisper API)",
+      "cloudDescription": "Hohe Qualität, erfordert API Key",
+      "local": "Lokal (whisper.cpp)",
+      "localDescription": "Offline, kostenlos, etwas mehr Setup",
+      "offlineMode": "Stattdessen offline nutzen",
+      "offlineNote": "Läuft auf dem Gerät. Langsamer und weniger genau als Cloud-Dienste.",
+      "apiKeyPlaceholder": "sk-...",
+      "next": "Weiter"
+    },
+    "shortcut": {
+      "title": "Shortcut festlegen",
+      "description": "Einmal drücken zum Starten, nochmal drücken zum Stoppen.",
+      "next": "Weiter"
+    },
+    "test": {
+      "title": "Kurzer Test",
+      "description": "Drücke deinen Shortcut und sprich etwas.",
+      "ready": "VOCA ist bereit!"
+    },
+    "aiEnhancement": {
+      "title": "KI-Nachbearbeitung",
+      "description": "Verbessert Interpunktion und Formatierung automatisch.",
+      "skip": "Überspringen",
+      "setup": "Einrichten",
+      "enable": "KI-Nachbearbeitung aktivieren",
+      "skipForNow": "Jetzt überspringen"
+    },
+    "finish": "Speichern & Fertig"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "nav": {
+      "general": "Allgemein",
+      "transcription": "Transkription",
+      "ai": "KI-Nachbearbeitung",
+      "snippets": "Snippets",
+      "dictionary": "Wörterbuch"
+    },
+    "general": {
+      "language": "Sprache",
+      "theme": "Design",
+      "themeDark": "Dunkel",
+      "themeLight": "Hell",
+      "themeSystem": "System",
+      "autostart": "Beim Systemstart starten",
+      "onboarding": "Onboarding erneut starten",
+      "inputDevice": "Eingabegerät",
+      "inputDeviceDefault": "Standard (Systemvorgabe)"
+    },
+    "transcription": {
+      "method": "Methode",
+      "mode": {
+        "cloud": "Cloud",
+        "local": "Lokal"
+      },
+      "apiKey": "API Key",
+      "localModel": "Lokales Modell",
+      "localModelDescription": "Läuft vollständig auf deinem Gerät – kein Internet nötig",
+      "download": "Herunterladen",
+      "downloaded": "Installiert",
+      "deleteModel": "Entfernen",
+      "cancelDownload": "Abbrechen",
+      "cloudProvider": "Anbieter",
+      "cloudModel": "Modell",
+      "cloudCustomEndpoint": "Endpoint",
+      "provider": {
+        "openai": "OpenAI Whisper",
+        "groq": "Groq Whisper",
+        "deepgram": "Deepgram",
+        "elevenlabs": "ElevenLabs",
+        "gemini": "Gemini",
+        "custom": "Benutzerdefiniert"
+      }
+    },
+    "shortcut": {
+      "recording": "Tasten drücken…",
+      "description": "Gedrückt halten (Push-to-Talk) · Zweimal tippen zum Umschalten"
+    },
+    "ai": {
+      "enabled": "KI-Nachbearbeitung aktivieren",
+      "provider": "Anbieter",
+      "model": "Modell",
+      "apiKey": "API Key",
+      "endpoint": "Endpoint",
+      "activePrompt": "Aktiver Prompt",
+      "promptsDescription": "Klicken zum Aktivieren",
+      "addPrompt": "Prompt hinzufügen",
+      "promptName": "Name",
+      "promptText": "Prompt-Text",
+      "ollamaNote": "Stelle sicher, dass Ollama läuft und das gewählte Modell heruntergeladen ist.",
+      "skipShort": "Kurze Transkriptionen überspringen",
+      "skipShortDescription": "Sehr kurze Aufnahmen werden ohne AI-Enhancement eingefügt",
+      "minWords": "Mindestens",
+      "words": "Wörter"
+    },
+    "snippets": {
+      "title": "Snippets",
+      "add": "Snippet hinzufügen",
+      "trigger": "Auslöser",
+      "output": "Ausgabe",
+      "name": "Name",
+      "enabled": "Aktiv"
+    },
+    "dictionary": {
+      "title": "Wörterbuch",
+      "add": "Eintrag hinzufügen",
+      "word": "Begriff"
+    }
+  },
+  "errors": {
+    "apiKeyInvalid": "API Key ungültig. Bitte in den Einstellungen prüfen.",
+    "noInternet": "Keine Internetverbindung. Bitte Verbindung prüfen.",
+    "microphoneUnavailable": "Mikrofon nicht verfügbar. Bitte Berechtigungen in den Systemeinstellungen prüfen.",
+    "recordingFailed": "Aufnahme fehlgeschlagen.",
+    "shortcutConflict": "Shortcut konnte nicht registriert werden. Bitte einen anderen Shortcut wählen.",
+    "aiEnhancementFailed": "KI-Nachbearbeitung fehlgeschlagen – Originaltext wurde verwendet."
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "add": "Hinzufügen",
+    "close": "Schließen"
+  }
+}
