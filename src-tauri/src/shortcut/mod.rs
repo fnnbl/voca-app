@@ -100,7 +100,7 @@ fn start_recording(app: &AppHandle) {
         .clone();
 
     let audio = app.state::<AudioRecordingState>();
-    if let Err(e) = crate::audio::start(&audio, device_name.as_deref()) {
+    if let Err(e) = crate::audio::start(&audio, device_name.as_deref(), app) {
         crate::errors::emit(app, "MICROPHONE_UNAVAILABLE", &e);
         crate::errors::transition_to_error(app);
         return;

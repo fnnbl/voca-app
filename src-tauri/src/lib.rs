@@ -53,6 +53,11 @@ pub struct ErrorPayload {
 }
 
 #[derive(Clone, serde::Serialize)]
+pub struct AudioLevelPayload {
+    pub level: f32,
+}
+
+#[derive(Clone, serde::Serialize)]
 pub struct ModelDownloadProgressPayload {
     pub size: String,
     pub downloaded_bytes: u64,
