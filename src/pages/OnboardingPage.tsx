@@ -5,6 +5,7 @@ import { open } from '@tauri-apps/plugin-shell'
 import { useShortcutCapture, sortShortcut } from '../hooks/useShortcutCapture'
 import { DEFAULT_SHORTCUT } from '../types'
 import type { Settings } from '../types'
+import { formatShortcutKey } from '../shortcut/format'
 
 interface Props {
   settings: Settings
@@ -515,7 +516,7 @@ function StepAi({
 /* ── Finale ──────────────────────────────────────────────────────────────── */
 
 function StepFinale({ settings, onFinish }: { settings: Settings; onFinish: (s: Settings) => Promise<void> }) {
-  const keys = (settings.shortcuts.key || DEFAULT_SHORTCUT).split('+')
+  const keys = (settings.shortcuts.key || DEFAULT_SHORTCUT).split('+').map((k) => formatShortcutKey(k))
   return (
     <div className="onb-stage" style={{ alignItems: 'center', textAlign: 'center', justifyContent: 'center' }}>
       <div className="onb-eyebrow">einrichtung abgeschlossen</div>
@@ -545,12 +546,7 @@ function StepFinale({ settings, onFinish }: { settings: Settings; onFinish: (s: 
 
 function KbdShortcutField({ value, onChange }: { value: string; onChange: (s: string) => void }) {
   const { recording, held, start, cancel, onKeyDown, onKeyUp, onBlur } = useShortcutCapture(onChange)
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
-  const label = (k: string) => {
-    if (k === 'Super') return isMac ? '⌘' : '⊞'
-    if (k === 'Alt')   return isMac ? '⌥' : 'Alt'
-    return k
-  }
+  const label = (k: string) => formatShortcutKey(k)
   const keys = recording
     ? (held.length > 0 ? sortShortcut(held).split('+') : [])
     : value.split('+')
