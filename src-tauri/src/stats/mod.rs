@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Utc};
 
 use crate::storage::HistoryEntry;
+use crate::target_app::labels::pretty_label;
 
 const TYPING_WPM: f64 = 55.0;
 const ACTIVITY_DAYS: usize = 30;
@@ -74,8 +75,11 @@ pub fn aggregate(history: &[HistoryEntry], now_ms: i64) -> StatsSummary {
         }
         *provider_counts.entry(entry.provider.clone()).or_insert(0) += 1;
         if let Some(target) = entry.target_app.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-            *target_app_counts.entry(target.to_owned()).or_insert(0) += 1;
-            entries_with_target_app += 1;
+            let label = pretty_label(target);
+            if !label.is_empty() {
+                *target_app_counts.entry(label).or_insert(0) += 1;
+                entries_with_target_app += 1;
+            }
         }
 
         let is_new_longest = match &longest {
@@ -297,6 +301,29 @@ mod tests {
         ];
         let s = aggregate(&hist, now);
         assert!((s.target_app_coverage - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aggregate_top_target_app_applies_pretty_label() {
+        let now = now_ms();
+        let hist = vec![
+            entry_with_app(now as u64, "groq", Some("Code.exe")),
+            entry_with_app(now as u64, "groq", Some("code")),
+            entry_with_app(now as u64, "groq", Some("com.microsoft.VSCode")),
+        ];
+        let s = aggregate(&hist, now);
+        let top = s.top_target_app.unwrap();
+        assert_eq!(top.name, "VS Code");
+        assert_eq!(top.count, 3);
+    }
+
+    #[test]
+    fn aggregate_top_target_app_strips_exe_for_unknown_apps() {
+        let now = now_ms();
+        let hist = vec![entry_with_app(now as u64, "groq", Some("MyCustomTool.exe"))];
+        let s = aggregate(&hist, now);
+        let top = s.top_target_app.unwrap();
+        assert_eq!(top.name, "MyCustomTool");
     }
 
     #[test]

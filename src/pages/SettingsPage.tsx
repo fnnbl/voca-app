@@ -10,6 +10,7 @@ import { HistoryPage } from './HistoryPage'
 import { StatsPage } from './StatsPage'
 import { DEFAULT_SHORTCUT } from '../types'
 import type { Settings } from '../types'
+import { formatShortcut } from '../shortcut/format'
 
 type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'general'
 
@@ -72,7 +73,7 @@ export function SettingsPage({ settings, onSave }: Props) {
         <div className="shell-foot">
           <span className="status-dot" />
           <span className="lbl">Bereit</span>
-          <span className="shortcut-badge">{shortcutKey}</span>
+          <span className="shortcut-badge">{formatShortcut(shortcutKey)}</span>
         </div>
       </aside>
 

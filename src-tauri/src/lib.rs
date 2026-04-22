@@ -17,7 +17,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Manager, WindowEvent,
 };
 
 use audio::{AudioBuffer, AudioRecordingState};
@@ -132,6 +132,18 @@ pub fn run() {
                 ) {
                     let _ = main.set_icon(icon);
                 }
+
+                // Hide on close instead of destroying the window, so the tray
+                // icon can bring it back. Without this the webview is torn down
+                // and `get_webview_window("main")` returns None.
+                let main_clone = main.clone();
+                main.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        let _ = main_clone.hide();
+                        api.prevent_close();
+                    }
+                });
+
                 let _ = main.show();
                 let _ = main.set_focus();
             }
@@ -213,21 +225,46 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
 
     let menu = Menu::with_items(app, &[&settings_item, &separator, &quit_item])?;
 
-    TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+    let initial_icon = Image::from_bytes(include_bytes!("../icons/tray-idle.png"))
+        .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+
+    let builder = TrayIconBuilder::with_id("main")
+        .icon(initial_icon)
         .menu(&menu)
         .tooltip("VOCA")
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "settings" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
+            "settings" => show_main_window(app),
             "quit" => app.exit(0),
             _ => {}
-        })
-        .build(app)?;
+        });
+
+    // Windows/Linux convention: left-click the tray icon to reveal the app.
+    // On macOS the menu-bar extra should open the menu on click, so we leave
+    // the default behaviour there.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        });
+
+    builder.build(app)?;
 
     Ok(())
+}
+
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 }
