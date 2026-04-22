@@ -225,8 +225,11 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
 
     let menu = Menu::with_items(app, &[&settings_item, &separator, &quit_item])?;
 
+    let initial_icon = Image::from_bytes(include_bytes!("../icons/tray-idle.png"))
+        .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+
     let builder = TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(initial_icon)
         .menu(&menu)
         .tooltip("VOCA")
         .on_menu_event(|app, event| match event.id.as_ref() {
