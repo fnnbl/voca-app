@@ -245,7 +245,8 @@ pub(crate) fn defaults() -> serde_json::Value {
             "cloudModel": "",
             "cloudCustomEndpoint": "",
             "language": "auto",
-            "removeFillerWords": false
+            "removeFillerWords": false,
+            "muteOtherAudio": true
         },
         "aiEnhancement": {
             "enabled": false,
@@ -324,6 +325,23 @@ mod tests {
         // Opt-in only — deletion is destructive, same principle as
         // privacy.targetAppTracking.
         assert_eq!(defaults()["transcription"]["removeFillerWords"], false);
+    }
+
+    #[test]
+    fn defaults_mute_other_audio_is_on() {
+        // Ducking is expected behaviour per the feature brief — mirrors how
+        // Whisperflow/VoiceInk ship. Users can opt out in Transcription
+        // settings if they want other audio to keep playing during recording.
+        assert_eq!(defaults()["transcription"]["muteOtherAudio"], true);
+    }
+
+    #[test]
+    fn merge_fills_missing_mute_other_audio_flag_with_true() {
+        let loaded = serde_json::json!({
+            "transcription": { "mode": "cloud" }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["transcription"]["muteOtherAudio"], true);
     }
 
     #[test]

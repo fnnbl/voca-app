@@ -93,6 +93,8 @@
         "pt": "Português",
         "it": "Italiano"
       },
+      "muteOtherAudio": "Mute other apps while recording",
+      "muteOtherAudioDescription": "Silences audio from other programs (music, videos, etc.) during recording. Nothing is paused. Windows only for now.",
       "apiKey": "API Key",
       "localModel": "Local model",
       "localModelDescription": "Runs entirely on your device – no internet required",
