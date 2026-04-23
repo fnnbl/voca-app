@@ -19,11 +19,13 @@ const WAVE_BARS = 14
 // Timings for the first-run reveal ceremony — shown once when the onboarding
 // Test step mounts. Bubble auto-dismisses after BUBBLE_MS or on the first
 // actual recording, whichever comes first. If the user stays idle for
-// WIGGLE_AFTER_MS, the pill does a single attention wiggle.
-const REVEAL_POP_MS = 380
-const BUBBLE_MS = 8000
-const WIGGLE_AFTER_MS = 10000
-const WIGGLE_DURATION_MS = 600
+// WIGGLE_AFTER_MS, the pill does a single attention wiggle. Wiggle comes
+// early enough that it reliably fires before most users have stopped
+// reading the onboarding copy; the bubble survives through the wiggle.
+const REVEAL_POP_MS = 780
+const BUBBLE_MS = 12000
+const WIGGLE_AFTER_MS = 7000
+const WIGGLE_DURATION_MS = 900
 
 export default function StatusBar() {
   const { t } = useTranslation()

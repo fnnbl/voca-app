@@ -458,13 +458,18 @@ function StepTest({ onNext }: { onNext: () => void }) {
     (async () => {
       try {
         await invoke('unlock_recording')
+        // Emit the reveal event BEFORE showing the pill window. The pill
+        // webview runs even while hidden, so its listener already sets the
+        // `is-revealing` class — when `show_pill` then flips visibility, the
+        // animation plays from frame 0 and the user doesn't see a
+        // pre-animation flicker of the plain pill.
+        await emit('pill-animate-reveal', {
+          bubble: t('onboarding.pill.bubble', { defaultValue: 'Ich lebe jetzt hier.' }),
+        })
         await invoke('show_pill')
       } catch (e) {
         console.error('failed to unlock pill for test step:', e)
       }
-      emit('pill-animate-reveal', {
-        bubble: t('onboarding.pill.bubble', { defaultValue: 'Hi — drück jetzt deinen Shortcut und sag mal was ein.' }),
-      }).catch(() => {})
     })()
   }, [t])
 
