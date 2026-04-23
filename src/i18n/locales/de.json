@@ -93,6 +93,8 @@
         "pt": "Português",
         "it": "Italiano"
       },
+      "muteOtherAudio": "Andere Apps während Aufnahme stummschalten",
+      "muteOtherAudioDescription": "Stummt laufende Audio-Ausgabe anderer Programme (z. B. Musik, Videos) während einer Aufnahme. Nichts wird pausiert. Aktuell nur Windows.",
       "apiKey": "API Key",
       "localModel": "Lokales Modell",
       "localModelDescription": "Läuft vollständig auf deinem Gerät – kein Internet nötig",

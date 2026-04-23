@@ -173,6 +173,11 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
     onChange({ ...settings, transcription: { ...settings.transcription, language } })
   }
 
+  function toggleMuteOtherAudio() {
+    const next = !(settings.transcription.muteOtherAudio ?? true)
+    onChange({ ...settings, transcription: { ...settings.transcription, muteOtherAudio: next } })
+  }
+
   function handleModelSizeChange(size: ModelSize) {
     onChange({ ...settings, transcription: { ...settings.transcription, localModelSize: size } })
   }
@@ -248,6 +253,18 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
             </option>
           ))}
         </select>
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.transcription.muteOtherAudio')}
+        description={t('settings.transcription.muteOtherAudioDescription')}
+      >
+        <button
+          role="switch"
+          aria-checked={settings.transcription.muteOtherAudio ?? true}
+          onClick={toggleMuteOtherAudio}
+          className={`v-switch${(settings.transcription.muteOtherAudio ?? true) ? ' on' : ''}`}
+        />
       </SettingRow>
 
       {!isLocal && (

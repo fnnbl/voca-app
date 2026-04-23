@@ -34,6 +34,7 @@ export interface Settings {
     cloudCustomEndpoint: string
     language: TranscriptionLanguage
     removeFillerWords: boolean
+    muteOtherAudio: boolean
   }
   aiEnhancement: {
     enabled: boolean
