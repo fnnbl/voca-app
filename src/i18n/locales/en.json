@@ -31,6 +31,35 @@
       "description": "Hold to record, release to stop. Double-tap quickly to toggle recording on/off.",
       "next": "Continue"
     },
+    "useCase": {
+      "title": "What do you work on?",
+      "description": "VOCA learns the typical vocabulary from your field so Whisper transcribes it correctly from the start. Multiple selections are fine. You can adjust this any time later.",
+      "skip": "Skip",
+      "next": "Continue",
+      "selectionHint": "{{count}} selected",
+      "category": {
+        "dev": {
+          "label": "Software Developer",
+          "description": "Coding, APIs, pull requests, frameworks"
+        },
+        "pm": {
+          "label": "Product / Project Manager",
+          "description": "Sprints, roadmap, OKRs, stakeholders"
+        },
+        "content": {
+          "label": "Content Creator",
+          "description": "SEO, copywriting, engagement, analytics"
+        },
+        "design": {
+          "label": "Designer",
+          "description": "Figma, wireframes, design systems"
+        },
+        "consulting": {
+          "label": "Consulting / Business",
+          "description": "Workshops, deliverables, proposals"
+        }
+      }
+    },
     "test": {
       "title": "Quick test",
       "description": "Press your shortcut and say something.",

@@ -596,11 +596,38 @@ fn build_dict_prompt(app: &AppHandle) -> Option<String> {
     dict_entries_to_prompt(&entries)
 }
 
+// Whisper (both OpenAI's hosted variant and Groq's mirror of the same API)
+// rejects `initial_prompt` values longer than ~896 characters — it's a hard
+// limit driven by the 224-token decoder context. We cap at 880 to leave a
+// small safety margin, take entries greedily in order, and stop before the
+// next entry would push us over. A word on its own that's already longer
+// than the cap gets skipped rather than truncated mid-term.
+const DICT_PROMPT_MAX_CHARS: usize = 880;
+
 pub(crate) fn dict_entries_to_prompt(entries: &[crate::storage::DictionaryEntry]) -> Option<String> {
     if entries.is_empty() {
         return None;
     }
-    Some(entries.iter().map(|e| e.word.as_str()).collect::<Vec<_>>().join(", "))
+    let mut out = String::new();
+    for entry in entries {
+        let word = entry.word.trim();
+        if word.is_empty() {
+            continue;
+        }
+        let projected_len = if out.is_empty() {
+            word.len()
+        } else {
+            out.len() + 2 + word.len() // ", " separator
+        };
+        if projected_len > DICT_PROMPT_MAX_CHARS {
+            continue;
+        }
+        if !out.is_empty() {
+            out.push_str(", ");
+        }
+        out.push_str(word);
+    }
+    if out.is_empty() { None } else { Some(out) }
 }
 
 fn apply_snippets(app: &AppHandle, text: String) -> String {
@@ -1014,6 +1041,54 @@ mod tests {
     fn dict_prompt_multiple_words_comma_separated() {
         let entries = vec![make_entry("VOCA"), make_entry("Tauri"), make_entry("Whisper")];
         assert_eq!(dict_entries_to_prompt(&entries), Some("VOCA, Tauri, Whisper".into()));
+    }
+
+    #[test]
+    fn dict_prompt_caps_at_whisper_context_limit() {
+        // 140 entries of 10 chars each would join to ~1540 chars — well over
+        // Whisper's 896-char ceiling. Output must stay at or below the
+        // 880-char cap.
+        let entries: Vec<_> = (0..140).map(|i| make_entry(&format!("word{i:04}"))).collect();
+        let result = dict_entries_to_prompt(&entries).unwrap();
+        assert!(
+            result.len() <= DICT_PROMPT_MAX_CHARS,
+            "prompt exceeded cap: {} chars",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn dict_prompt_keeps_early_entries_when_capping() {
+        // When the list is too long, early entries survive (user's order is
+        // respected), later ones get dropped. Verifies no reshuffling.
+        let entries: Vec<_> = (0..140).map(|i| make_entry(&format!("word{i:04}"))).collect();
+        let result = dict_entries_to_prompt(&entries).unwrap();
+        assert!(result.starts_with("word0000, word0001, word0002"));
+    }
+
+    #[test]
+    fn dict_prompt_skips_individual_entries_longer_than_cap() {
+        // A single entry longer than the whole cap is skipped rather than
+        // truncated mid-word. The rest of the list continues normally.
+        let long_word = "a".repeat(1000);
+        let entries = vec![
+            make_entry("Commit"),
+            make_entry(&long_word),
+            make_entry("Merge"),
+        ];
+        let result = dict_entries_to_prompt(&entries).unwrap();
+        assert_eq!(result, "Commit, Merge");
+    }
+
+    #[test]
+    fn dict_prompt_skips_empty_and_whitespace_entries() {
+        let entries = vec![
+            make_entry(""),
+            make_entry("   "),
+            make_entry("Commit"),
+            make_entry("Merge"),
+        ];
+        assert_eq!(dict_entries_to_prompt(&entries), Some("Commit, Merge".into()));
     }
 
     // ── classify_error ────────────────────────────────────────────────────────

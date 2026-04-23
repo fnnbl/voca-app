@@ -238,6 +238,40 @@ pub fn save_dictionary(app: tauri::AppHandle, entries: Vec<crate::storage::Dicti
 }
 
 #[tauri::command]
+pub fn seed_dictionary_with_use_cases(
+    app: tauri::AppHandle,
+    use_cases: Vec<String>,
+) -> Result<(), String> {
+    let existing = crate::storage::load_dictionary(&app).unwrap_or_default();
+
+    // Case-insensitive dedupe against existing entries — we never duplicate a
+    // word the user already has, and we never overwrite their choices.
+    let mut existing_keys: std::collections::HashSet<String> =
+        existing.iter().map(|e| e.word.to_lowercase()).collect();
+
+    let refs: Vec<&str> = use_cases.iter().map(|s| s.as_str()).collect();
+    let seed_words = crate::storage::dictionary_seeds::seeds_for(&refs);
+
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+
+    let mut merged = existing;
+    for (index, word) in seed_words.into_iter().enumerate() {
+        let key = word.to_lowercase();
+        if existing_keys.insert(key) {
+            merged.push(crate::storage::DictionaryEntry {
+                id: format!("seed-{nanos}-{index}"),
+                word,
+            });
+        }
+    }
+
+    crate::storage::save_dictionary(&app, &merged)
+}
+
+#[tauri::command]
 pub fn get_snippets(app: tauri::AppHandle) -> Result<Vec<crate::storage::Snippet>, String> {
     crate::storage::load_snippets(&app)
 }
