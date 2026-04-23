@@ -101,65 +101,92 @@ export default function StatusBar() {
   function playRevealAnimation() {
     const outer = outerRef.current
     const content = contentRef.current
-    const reduceMotion = prefersReducedMotion()
+    if (!outer) return
 
-    if (outer) {
-      if (reduceMotion) {
-        outer.animate(
-          [
-            { opacity: 0 },
-            { opacity: 1 },
-          ],
-          { duration: 240, easing: 'ease-out', fill: 'forwards' }
-        )
-      } else {
-        outer.animate(
-          [
-            { opacity: 0, transform: 'scale(0) rotate(-200deg) translateY(0)' },
-            { opacity: 1, transform: 'scale(1.55) rotate(-12deg) translateY(-10px)', offset: 0.28 },
-            {             transform: 'scale(1.18) rotate(10deg) translateY(-6px)',  offset: 0.52 },
-            {             transform: 'scale(0.92) rotate(-4deg) translateY(-2px)',  offset: 0.72 },
-            {             transform: 'scale(1.06) rotate(2deg) translateY(0)',       offset: 0.88 },
-            { opacity: 1, transform: 'scale(1) rotate(0) translateY(0)' },
-          ],
-          { duration: REVEAL_POP_MS, easing: 'cubic-bezier(0.22, 1.25, 0.36, 1)', fill: 'forwards' }
-        )
-      }
+    // Kill any in-flight CSS or WAAPI animations on the elements we're
+    // about to touch — otherwise the pillFadeIn that fires on
+    // `.pill-collapsed` mount (or a previous reveal pass) competes with
+    // the inline styles and either wins or cancels ours out.
+    outer.getAnimations?.().forEach((a) => a.cancel())
+    content?.getAnimations?.().forEach((a) => a.cancel())
+
+    if (prefersReducedMotion()) {
+      return
     }
 
-    if (content && !reduceMotion) {
-      // Ember flood → cool-down to the normal collapsed dark. Keeps the
-      // same duration as the outer swoop so both end in lockstep.
-      content.animate(
-        [
-          { background: EMBER, boxShadow: EMBER_SHADOW, width: '44px' },
-          { background: EMBER, boxShadow: EMBER_SHADOW, width: '56px', offset: 0.28 },
-          { background: EMBER, boxShadow: EMBER_SHADOW, width: '44px', offset: 0.52 },
-          { background: 'rgba(120,65,45,0.75)', boxShadow: '0 2px 10px rgba(198,84,65,0.35), 0 0 0 0.5px rgba(255,255,255,0.12)', offset: 0.78 },
-          { background: PILL_COLLAPSED_BG, boxShadow: PILL_COLLAPSED_SHADOW, width: '44px' },
-        ],
-        { duration: REVEAL_POP_MS, easing: 'cubic-bezier(0.22, 1.25, 0.36, 1)', fill: 'forwards' }
-      )
+    // Stage the starting pose with transition disabled so the browser
+    // paints it at scale(0) first, then re-enable transition and swap to
+    // the target pose. The forced reflow between the two phases is the
+    // key — without it the browser coalesces both style writes into one
+    // paint and we never see the animation.
+    outer.style.transition = 'none'
+    outer.style.transformOrigin = 'center bottom'
+    outer.style.transform = 'scale(0) rotate(-200deg)'
+    outer.style.opacity = '0'
+
+    if (content) {
+      content.style.transition = 'none'
+      content.style.backgroundColor = EMBER
+      content.style.boxShadow = EMBER_SHADOW
     }
+
+    // Force the browser to lay out and paint the starting state before we
+    // queue the transition.
+    void outer.offsetHeight
+
+    requestAnimationFrame(() => {
+      // Stage 1 — explosive pop to an overshoot peak.
+      outer.style.transition =
+        'transform 360ms cubic-bezier(0.22, 1.5, 0.36, 1), opacity 180ms ease-out'
+      outer.style.transform = 'scale(1.55) rotate(-12deg) translateY(-10px)'
+      outer.style.opacity = '1'
+
+      // Stage 2 — settle back to rest with the colour cooling from ember
+      // to the normal dark. The delay matches stage 1 so the two stages
+      // cross seamlessly.
+      setTimeout(() => {
+        outer.style.transition = 'transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+        outer.style.transform = 'scale(1) rotate(0) translateY(0)'
+
+        if (content) {
+          content.style.transition =
+            'background-color 520ms ease-out, box-shadow 520ms ease-out'
+          content.style.backgroundColor = PILL_COLLAPSED_BG
+          content.style.boxShadow = PILL_COLLAPSED_SHADOW
+        }
+      }, 380)
+
+      // Stage 3 — clear the inline overrides so future state changes
+      // (switching to pill-wave on record, etc.) pick up normal CSS.
+      setTimeout(() => {
+        outer.style.transition = ''
+        outer.style.transform = ''
+        outer.style.opacity = ''
+        outer.style.transformOrigin = ''
+        if (content) {
+          content.style.transition = ''
+          content.style.backgroundColor = ''
+          content.style.boxShadow = ''
+        }
+      }, REVEAL_POP_MS + 120)
+    })
   }
 
   function playWiggleAnimation() {
     const outer = outerRef.current
     if (!outer || prefersReducedMotion()) return
 
-    outer.animate(
-      [
-        { transform: 'rotate(0) translateY(0)' },
-        { transform: 'rotate(-9deg) translateY(-4px)', offset: 0.10 },
-        { transform: 'rotate(8deg) translateY(-6px)',  offset: 0.25 },
-        { transform: 'rotate(-6deg) translateY(-2px)', offset: 0.40 },
-        { transform: 'rotate(5deg) translateY(-3px)',  offset: 0.55 },
-        { transform: 'rotate(-3deg) translateY(-1px)', offset: 0.70 },
-        { transform: 'rotate(1.5deg) translateY(0)',   offset: 0.85 },
-        { transform: 'rotate(0) translateY(0)' },
-      ],
-      { duration: WIGGLE_DURATION_MS, easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)', fill: 'none' }
-    )
+    // Wiggle fires 7 s after the reveal, long after the webview has been
+    // stable — CSS keyframe animations are reliable at that point. Use a
+    // class toggle with a reflow in between so the animation restarts if
+    // it was somehow already marked "used".
+    outer.classList.remove('is-wiggling')
+    void outer.offsetHeight
+    outer.classList.add('is-wiggling')
+
+    setTimeout(() => {
+      outer.classList.remove('is-wiggling')
+    }, WIGGLE_DURATION_MS + 50)
   }
 
   useEffect(() => {

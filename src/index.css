@@ -255,12 +255,32 @@ input[type="password"]::-ms-reveal { display: none; }
   transform-origin: center bottom;
 }
 
-/* The reveal swoop and attention wiggle are driven from JS via the Web
-   Animations API (see `StatusBar.tsx`). CSS class-based keyframes used to
-   live here but were unreliable during the first ~200 ms after the hidden
-   pill webview became visible — the compositor swallowed animation frames
-   and the user saw nothing. Imperative .animate() sidesteps that class of
-   bugs entirely. */
+/* The first-meeting pop is driven via inline style transitions from
+   `StatusBar.tsx`. CSS keyframes and WAAPI both proved unreliable during
+   the first ~200 ms after the hidden pill webview became visible — the
+   compositor silently swallowed frames. Inline transitions with a forced
+   reflow between start and target states get around that.
+
+   The attention wiggle fires 7 s later, long after the webview is stable,
+   so a CSS keyframe + class toggle is safe here. */
+.pill-outer.is-wiggling {
+  animation: pillWiggle 900ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 1 both;
+}
+@keyframes pillWiggle {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  10%      { transform: rotate(-10deg) translateY(-4px); }
+  25%      { transform: rotate(9deg)   translateY(-6px); }
+  40%      { transform: rotate(-7deg)  translateY(-3px); }
+  55%      { transform: rotate(6deg)   translateY(-4px); }
+  70%      { transform: rotate(-4deg)  translateY(-1px); }
+  85%      { transform: rotate(2deg)   translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-outer.is-wiggling {
+    animation: none;
+  }
+}
 
 /* Speech bubble tethered above the pill. Appears with a short upward ease,
    stays visible until the user starts recording or BUBBLE_MS elapses. */
