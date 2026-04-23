@@ -458,15 +458,16 @@ function StepTest({ onNext }: { onNext: () => void }) {
     (async () => {
       try {
         await invoke('unlock_recording')
-        // Emit the reveal event BEFORE showing the pill window. The pill
-        // webview runs even while hidden, so its listener already sets the
-        // `is-revealing` class — when `show_pill` then flips visibility, the
-        // animation plays from frame 0 and the user doesn't see a
-        // pre-animation flicker of the plain pill.
-        await emit('pill-animate-reveal', {
-          bubble: t('onboarding.pill.bubble', { defaultValue: 'Ich lebe jetzt hier.' }),
-        })
         await invoke('show_pill')
+        // Give the OS compositor a beat to actually paint the now-visible
+        // pill window. Emitting the reveal event before this gap often
+        // resulted in the CSS animation running entirely inside the hidden
+        // webview, leaving the user with a silently-arrived pill. 120 ms is
+        // enough on the systems we've tested without feeling like a lag.
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        await emit('pill-animate-reveal', {
+          bubble: t('onboarding.pill.bubble', { defaultValue: 'Hey, hier bin ich!' }),
+        })
       } catch (e) {
         console.error('failed to unlock pill for test step:', e)
       }

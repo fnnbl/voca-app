@@ -22,7 +22,7 @@ const WAVE_BARS = 14
 // WIGGLE_AFTER_MS, the pill does a single attention wiggle. Wiggle comes
 // early enough that it reliably fires before most users have stopped
 // reading the onboarding copy; the bubble survives through the wiggle.
-const REVEAL_POP_MS = 780
+const REVEAL_POP_MS = 820
 const BUBBLE_MS = 12000
 const WIGGLE_AFTER_MS = 7000
 const WIGGLE_DURATION_MS = 900
@@ -59,10 +59,19 @@ export default function StatusBar() {
   // never has to own its own i18n state.
   useEffect(() => {
     const unlisten = listen<{ bubble?: string }>('pill-animate-reveal', (e) => {
-      setRevealing(true)
-      // Drop the revealing flag after the pop-in animation ends so the
-      // keyframe class doesn't restart on unrelated re-renders.
-      setTimeout(() => setRevealing(false), REVEAL_POP_MS)
+      // Force a fresh CSS animation run: clear the class, wait two frames
+      // (one for React to commit the DOM change, one for the browser to
+      // acknowledge the style recalculation), then re-apply. Without this
+      // the keyframe is frequently skipped when the pill's webview has
+      // just been made visible from a hidden state — Tauri/OS compositor
+      // has a brief window where animation frames get swallowed.
+      setRevealing(false)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setRevealing(true)
+          setTimeout(() => setRevealing(false), REVEAL_POP_MS)
+        })
+      })
 
       const text = e.payload?.bubble ?? null
       if (text) {
