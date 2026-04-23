@@ -26,9 +26,12 @@ pub async fn process(app: AppHandle) {
 
     let settings = crate::storage::load(&app).unwrap_or_default();
 
-    let language = settings["general"]["language"]
+    // Transcription language is an independent setting from UI language.
+    // "auto" (the default) lets the STT provider detect the language itself,
+    // which avoids forcing a wrong hint when the speaker mixes languages.
+    let language = settings["transcription"]["language"]
         .as_str()
-        .unwrap_or("de")
+        .unwrap_or("auto")
         .to_owned();
 
     let mode = settings["transcription"]["mode"]
@@ -284,8 +287,10 @@ async fn call_openai_compat(
 
     let mut form = reqwest::multipart::Form::new()
         .part("file", part)
-        .text("model", model.to_owned())
-        .text("language", language.to_owned());
+        .text("model", model.to_owned());
+    if !is_auto_language(language) {
+        form = form.text("language", language.to_owned());
+    }
     if let Some(prompt) = initial_prompt {
         form = form.text("prompt", prompt.to_owned());
     }
@@ -339,10 +344,15 @@ async fn call_deepgram(
                 .collect::<String>()
         })
         .unwrap_or_default();
+    let language_param = if is_auto_language(language) {
+        "detect_language=true".to_owned()
+    } else {
+        format!("language={language}")
+    };
     let client = reqwest::Client::new();
     let response = client
         .post(format!(
-            "https://api.deepgram.com/v1/listen?language={language}&model={model}&smart_format=true{keywords}"
+            "https://api.deepgram.com/v1/listen?{language_param}&model={model}&smart_format=true{keywords}"
         ))
         .header("Authorization", format!("Token {api_key}"))
         .header("Content-Type", "audio/wav")
@@ -392,7 +402,7 @@ async fn call_elevenlabs(
         .part("file", part)
         .text("model_id", model.to_owned());
 
-    if !language.is_empty() {
+    if !is_auto_language(language) {
         form = form.text("language_code", language.to_owned());
     }
 
@@ -446,7 +456,7 @@ async fn call_gemini(
         .map(|p| format!(" Pay attention to these terms: {p}."))
         .unwrap_or_default();
 
-    let prompt = if language.is_empty() || language == "auto" {
+    let prompt = if is_auto_language(language) {
         format!("Transcribe the following audio. Return only the transcribed text, nothing else.{vocab_hint}")
     } else {
         format!("Transcribe the following audio in {language}. Return only the transcribed text, nothing else.{vocab_hint}")
@@ -575,6 +585,10 @@ async fn maybe_enhance(
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+pub(crate) fn is_auto_language(language: &str) -> bool {
+    language.is_empty() || language.eq_ignore_ascii_case("auto")
+}
 
 fn build_dict_prompt(app: &AppHandle) -> Option<String> {
     let entries = crate::storage::load_dictionary(app).ok()?;
@@ -744,6 +758,27 @@ mod tests {
 
     fn make_entry(word: &str) -> DictionaryEntry {
         DictionaryEntry { id: "test".into(), word: word.into() }
+    }
+
+    // ── is_auto_language ──────────────────────────────────────────────────────
+
+    #[test]
+    fn is_auto_language_matches_empty_string() {
+        assert!(is_auto_language(""));
+    }
+
+    #[test]
+    fn is_auto_language_matches_auto_case_insensitively() {
+        assert!(is_auto_language("auto"));
+        assert!(is_auto_language("Auto"));
+        assert!(is_auto_language("AUTO"));
+    }
+
+    #[test]
+    fn is_auto_language_rejects_explicit_codes() {
+        assert!(!is_auto_language("de"));
+        assert!(!is_auto_language("en"));
+        assert!(!is_auto_language("es"));
     }
 
     // ── apply_snippets_to_text ────────────────────────────────────────────────

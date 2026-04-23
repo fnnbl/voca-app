@@ -16,7 +16,14 @@ pub fn transcribe_with_context(ctx: &WhisperContext, wav_bytes: &[u8], language:
 
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 0 });
     params.set_n_threads(n_threads);
-    params.set_language(Some(language));
+    // Empty/"auto" means auto-detect: pass None so whisper.cpp does the detection
+    // itself instead of being forced onto whatever UI-language string leaks in.
+    let lang_hint = if language.is_empty() || language.eq_ignore_ascii_case("auto") {
+        None
+    } else {
+        Some(language)
+    };
+    params.set_language(lang_hint);
     params.set_translate(false);
     params.set_print_special(false);
     params.set_print_progress(false);
