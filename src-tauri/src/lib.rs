@@ -181,6 +181,7 @@ pub fn run() {
             commands::delete_ai_provider_key,
             commands::get_dictionary,
             commands::save_dictionary,
+            commands::seed_dictionary_with_use_cases,
             commands::get_snippets,
             commands::save_snippets,
             commands::get_fillers,
