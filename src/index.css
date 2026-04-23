@@ -255,76 +255,12 @@ input[type="password"]::-ms-reveal { display: none; }
   transform-origin: center bottom;
 }
 
-/* First-meeting materialisation: applied once when the onboarding Test step
-   mounts. The pill window is only 72 px tall, so we can't literally fly
-   from offscreen — instead the pill spawns from scale(0) at its rest
-   position, spins in with a -200° rotation, overshoots to 1.5×, and
-   settles through a couple of secondary bounces. The synchronised child
-   keyframe floods it with the V-ember colour during the spin and cools
-   to the resting dark by the end, which reads as the pill arriving hot
-   and calming down. */
-.pill-outer.is-revealing {
-  animation: pillRevealSwoop 820ms cubic-bezier(0.22, 1.25, 0.36, 1) 1 both;
-}
-@keyframes pillRevealSwoop {
-  0%   { opacity: 0; transform: scale(0)    rotate(-200deg) translateY(0); }
-  28%  { opacity: 1; transform: scale(1.55) rotate(-12deg)  translateY(-10px); }
-  52%  { transform: scale(1.18) rotate(10deg)  translateY(-6px); }
-  72%  { transform: scale(0.92) rotate(-4deg)  translateY(-2px); }
-  88%  { transform: scale(1.06) rotate(2deg)   translateY(0); }
-  100% { opacity: 1; transform: scale(1) rotate(0) translateY(0); }
-}
-
-/* The collapsed bar (idle state at the moment of first reveal) gets its own
-   synced keyframe that floods with ember during flight and fades to the
-   standard dark after landing. Shadow flares too, so the arrival reads from
-   across the screen — not just a subtle nudge. */
-.pill-outer.is-revealing .pill-collapsed {
-  animation: pillRevealGlow 820ms cubic-bezier(0.22, 1.25, 0.36, 1) 1 both;
-}
-@keyframes pillRevealGlow {
-  0% {
-    background: var(--v-ember);
-    box-shadow: 0 0 24px 10px rgba(198,84,65,0.55), 0 0 0 0.5px rgba(255,255,255,0.12);
-  }
-  55% {
-    background: var(--v-ember);
-    box-shadow: 0 0 42px 18px rgba(198,84,65,0.6), 0 0 0 0.5px rgba(255,255,255,0.15);
-  }
-  78% {
-    background: rgba(120,65,45,0.75);
-    box-shadow: 0 2px 10px rgba(198,84,65,0.35), 0 0 0 0.5px rgba(255,255,255,0.12);
-  }
-  100% {
-    background: rgba(30,30,30,0.55);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.12);
-  }
-}
-.pill-outer.is-revealing .pill,
-.pill-outer.is-revealing .pill-wave {
-  animation: pillRevealDarkTint 820ms cubic-bezier(0.22, 1.25, 0.36, 1) 1 both;
-}
-@keyframes pillRevealDarkTint {
-  0%   { background: var(--v-ember); box-shadow: 0 0 40px 16px rgba(198,84,65,0.55), inset 0 0.5px 0 rgba(255,255,255,0.12); }
-  55%  { background: var(--v-ember); box-shadow: 0 0 48px 20px rgba(198,84,65,0.5), inset 0 0.5px 0 rgba(255,255,255,0.15); }
-  100% { background: rgba(20,19,17,0.88); box-shadow: 0 2px 8px rgba(0,0,0,0.18), 0 10px 30px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.1); }
-}
-
-/* Attention wiggle: fires ~7s after the reveal if the user hasn't started
-   recording yet. Bigger tilt, vertical bounce, visible from anywhere on
-   screen. Runs at most once per ceremony. */
-.pill-outer.is-wiggling {
-  animation: pillWiggle 900ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 1 both;
-}
-@keyframes pillWiggle {
-  0%, 100% { transform: rotate(0) translateY(0); }
-  10%      { transform: rotate(-9deg) translateY(-4px); }
-  25%      { transform: rotate(8deg)  translateY(-6px); }
-  40%      { transform: rotate(-6deg) translateY(-2px); }
-  55%      { transform: rotate(5deg)  translateY(-3px); }
-  70%      { transform: rotate(-3deg) translateY(-1px); }
-  85%      { transform: rotate(1.5deg) translateY(0); }
-}
+/* The reveal swoop and attention wiggle are driven from JS via the Web
+   Animations API (see `StatusBar.tsx`). CSS class-based keyframes used to
+   live here but were unreliable during the first ~200 ms after the hidden
+   pill webview became visible — the compositor swallowed animation frames
+   and the user saw nothing. Imperative .animate() sidesteps that class of
+   bugs entirely. */
 
 /* Speech bubble tethered above the pill. Appears with a short upward ease,
    stays visible until the user starts recording or BUBBLE_MS elapses. */
@@ -359,15 +295,6 @@ input[type="password"]::-ms-reveal { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pill-outer.is-revealing,
-  .pill-outer.is-revealing .pill-collapsed,
-  .pill-outer.is-revealing .pill,
-  .pill-outer.is-revealing .pill-wave {
-    animation: pillFadeIn var(--dur-2) ease 1 both;
-  }
-  .pill-outer.is-wiggling {
-    animation: none;
-  }
   .pill-bubble {
     animation: none;
   }

@@ -19,13 +19,22 @@ const WAVE_BARS = 14
 // Timings for the first-run reveal ceremony — shown once when the onboarding
 // Test step mounts. Bubble auto-dismisses after BUBBLE_MS or on the first
 // actual recording, whichever comes first. If the user stays idle for
-// WIGGLE_AFTER_MS, the pill does a single attention wiggle. Wiggle comes
-// early enough that it reliably fires before most users have stopped
-// reading the onboarding copy; the bubble survives through the wiggle.
+// WIGGLE_AFTER_MS, the pill does a single attention wiggle.
 const REVEAL_POP_MS = 820
 const BUBBLE_MS = 12000
 const WIGGLE_AFTER_MS = 7000
 const WIGGLE_DURATION_MS = 900
+
+const EMBER = '#C65441'
+const PILL_COLLAPSED_BG = 'rgba(30,30,30,0.55)'
+const PILL_COLLAPSED_SHADOW =
+  '0 1px 4px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.12)'
+const EMBER_SHADOW =
+  '0 0 42px 18px rgba(198,84,65,0.6), 0 0 0 0.5px rgba(255,255,255,0.15)'
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 export default function StatusBar() {
   const { t } = useTranslation()
@@ -35,12 +44,12 @@ export default function StatusBar() {
   const startRef = useRef<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // First-run reveal state
-  const [revealing, setRevealing] = useState(false)
+  // Reveal ceremony state
   const [bubbleText, setBubbleText] = useState<string | null>(null)
-  const [wiggle, setWiggle] = useState(false)
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wiggleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const outerRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     getCurrentWebviewWindow().setIgnoreCursorEvents(true).catch(() => {})
@@ -54,25 +63,15 @@ export default function StatusBar() {
     return () => { unlisten.then((fn) => fn()) }
   }, [])
 
-  // Reveal ceremony: fires once per onboarding completion. Payload carries
-  // the bubble text in whatever locale the main window is using, so the pill
-  // never has to own its own i18n state.
+  // Reveal ceremony: fires once per onboarding completion. We drive both
+  // the outer swoop and the child's ember-to-dark colour transition via
+  // the Web Animations API instead of CSS classes — CSS keyframes were
+  // being swallowed by the OS compositor in the first ~200 ms after the
+  // hidden webview became visible, so the user saw the pill appear with
+  // no motion. Imperative .animate() bypasses that whole class of timing
+  // bugs; the browser runs it deterministically on the main frame.
   useEffect(() => {
     const unlisten = listen<{ bubble?: string }>('pill-animate-reveal', (e) => {
-      // Force a fresh CSS animation run: clear the class, wait two frames
-      // (one for React to commit the DOM change, one for the browser to
-      // acknowledge the style recalculation), then re-apply. Without this
-      // the keyframe is frequently skipped when the pill's webview has
-      // just been made visible from a hidden state — Tauri/OS compositor
-      // has a brief window where animation frames get swallowed.
-      setRevealing(false)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setRevealing(true)
-          setTimeout(() => setRevealing(false), REVEAL_POP_MS)
-        })
-      })
-
       const text = e.payload?.bubble ?? null
       if (text) {
         setBubbleText(text)
@@ -80,10 +79,16 @@ export default function StatusBar() {
         bubbleTimerRef.current = setTimeout(() => setBubbleText(null), BUBBLE_MS)
       }
 
+      // Defer one frame so the refs are attached after any pending React
+      // re-render (the bubble mounts in the same tick).
+      requestAnimationFrame(() => {
+        playRevealAnimation()
+      })
+
+      // Reset and schedule the attention wiggle.
       if (wiggleTimerRef.current) clearTimeout(wiggleTimerRef.current)
       wiggleTimerRef.current = setTimeout(() => {
-        setWiggle(true)
-        setTimeout(() => setWiggle(false), WIGGLE_DURATION_MS)
+        playWiggleAnimation()
       }, WIGGLE_AFTER_MS)
     })
     return () => {
@@ -92,6 +97,70 @@ export default function StatusBar() {
       if (wiggleTimerRef.current) clearTimeout(wiggleTimerRef.current)
     }
   }, [])
+
+  function playRevealAnimation() {
+    const outer = outerRef.current
+    const content = contentRef.current
+    const reduceMotion = prefersReducedMotion()
+
+    if (outer) {
+      if (reduceMotion) {
+        outer.animate(
+          [
+            { opacity: 0 },
+            { opacity: 1 },
+          ],
+          { duration: 240, easing: 'ease-out', fill: 'forwards' }
+        )
+      } else {
+        outer.animate(
+          [
+            { opacity: 0, transform: 'scale(0) rotate(-200deg) translateY(0)' },
+            { opacity: 1, transform: 'scale(1.55) rotate(-12deg) translateY(-10px)', offset: 0.28 },
+            {             transform: 'scale(1.18) rotate(10deg) translateY(-6px)',  offset: 0.52 },
+            {             transform: 'scale(0.92) rotate(-4deg) translateY(-2px)',  offset: 0.72 },
+            {             transform: 'scale(1.06) rotate(2deg) translateY(0)',       offset: 0.88 },
+            { opacity: 1, transform: 'scale(1) rotate(0) translateY(0)' },
+          ],
+          { duration: REVEAL_POP_MS, easing: 'cubic-bezier(0.22, 1.25, 0.36, 1)', fill: 'forwards' }
+        )
+      }
+    }
+
+    if (content && !reduceMotion) {
+      // Ember flood → cool-down to the normal collapsed dark. Keeps the
+      // same duration as the outer swoop so both end in lockstep.
+      content.animate(
+        [
+          { background: EMBER, boxShadow: EMBER_SHADOW, width: '44px' },
+          { background: EMBER, boxShadow: EMBER_SHADOW, width: '56px', offset: 0.28 },
+          { background: EMBER, boxShadow: EMBER_SHADOW, width: '44px', offset: 0.52 },
+          { background: 'rgba(120,65,45,0.75)', boxShadow: '0 2px 10px rgba(198,84,65,0.35), 0 0 0 0.5px rgba(255,255,255,0.12)', offset: 0.78 },
+          { background: PILL_COLLAPSED_BG, boxShadow: PILL_COLLAPSED_SHADOW, width: '44px' },
+        ],
+        { duration: REVEAL_POP_MS, easing: 'cubic-bezier(0.22, 1.25, 0.36, 1)', fill: 'forwards' }
+      )
+    }
+  }
+
+  function playWiggleAnimation() {
+    const outer = outerRef.current
+    if (!outer || prefersReducedMotion()) return
+
+    outer.animate(
+      [
+        { transform: 'rotate(0) translateY(0)' },
+        { transform: 'rotate(-9deg) translateY(-4px)', offset: 0.10 },
+        { transform: 'rotate(8deg) translateY(-6px)',  offset: 0.25 },
+        { transform: 'rotate(-6deg) translateY(-2px)', offset: 0.40 },
+        { transform: 'rotate(5deg) translateY(-3px)',  offset: 0.55 },
+        { transform: 'rotate(-3deg) translateY(-1px)', offset: 0.70 },
+        { transform: 'rotate(1.5deg) translateY(0)',   offset: 0.85 },
+        { transform: 'rotate(0) translateY(0)' },
+      ],
+      { duration: WIGGLE_DURATION_MS, easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)', fill: 'none' }
+    )
+  }
 
   useEffect(() => {
     const unlisten = listen<{ level: number }>('audio-level', (e) => {
@@ -135,25 +204,17 @@ export default function StatusBar() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   }
 
-  const revealClass = [
-    'pill-outer',
-    revealing ? 'is-revealing' : '',
-    wiggle ? 'is-wiggling' : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-
   return (
-    <div className={revealClass}>
+    <div className="pill-outer" ref={outerRef}>
       {bubbleText && (
         <div className="pill-bubble" role="status" aria-live="polite">
           {bubbleText}
         </div>
       )}
       {appState === 'idle' ? (
-        <div key="collapsed" className="pill-collapsed" />
+        <div key="collapsed" className="pill-collapsed" ref={contentRef} />
       ) : appState === 'recording' ? (
-        <div key="recording" className="pill-wave">
+        <div key="recording" className="pill-wave" ref={contentRef}>
           <div className="rec-label">
             <span className="ember" />
             REC
@@ -162,7 +223,7 @@ export default function StatusBar() {
           <span className="pill-timer">{formatTime(elapsed)}</span>
         </div>
       ) : (
-        <div key={appState} className={`pill ${appState}`}>
+        <div key={appState} className={`pill ${appState}`} ref={contentRef}>
           {appState === 'processing'
             ? <span className="pill-spinner" />
             : <span className="pill-dot" />}
