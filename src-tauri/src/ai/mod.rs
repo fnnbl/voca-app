@@ -39,7 +39,7 @@ async fn enhance_openai_compat(
         "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text}
+            {"role": "user", "content": wrap_transcript(text)}
         ]
     });
 
@@ -73,7 +73,7 @@ async fn enhance_openai_compat(
 
     json["choices"][0]["message"]["content"]
         .as_str()
-        .map(|s| s.trim().to_owned())
+        .map(|s| strip_meta_commentary(s.trim()))
         .ok_or_else(|| "AI_ENHANCEMENT_FAILED: unexpected response shape".into())
 }
 
@@ -87,7 +87,7 @@ async fn enhance_anthropic(
         "model": model,
         "max_tokens": 4096,
         "system": system_prompt,
-        "messages": [{"role": "user", "content": text}]
+        "messages": [{"role": "user", "content": wrap_transcript(text)}]
     });
 
     let client = reqwest::Client::new();
@@ -116,8 +116,41 @@ async fn enhance_anthropic(
 
     json["content"][0]["text"]
         .as_str()
-        .map(|s| s.trim().to_owned())
+        .map(|s| strip_meta_commentary(s.trim()))
         .ok_or_else(|| "AI_ENHANCEMENT_FAILED: unexpected response shape".into())
+}
+
+fn wrap_transcript(text: &str) -> String {
+    format!("<transcript>\n{text}\n</transcript>")
+}
+
+const META_COMMENTARY_TRIGGERS: &[&str] = &[
+    // German
+    "ich habe folgende änderungen",
+    "ich habe die folgenden änderungen",
+    "folgende änderungen wurden",
+    "folgende änderungen habe ich",
+    "änderungen:",
+    // English
+    "i made the following changes",
+    "here are the changes",
+    "the following changes were",
+    "changes made:",
+    "summary of changes:",
+];
+
+fn strip_meta_commentary(text: &str) -> String {
+    let lower = text.to_lowercase();
+    let mut earliest: Option<usize> = None;
+    for trigger in META_COMMENTARY_TRIGGERS {
+        if let Some(pos) = lower.find(&format!("\n\n{trigger}")) {
+            earliest = Some(earliest.map_or(pos, |e| e.min(pos)));
+        }
+    }
+    match earliest {
+        Some(0) | None => text.to_owned(),
+        Some(pos) => text[..pos].trim_end().to_owned(),
+    }
 }
 
 #[cfg(test)]
@@ -168,5 +201,83 @@ mod tests {
     #[test]
     fn custom_empty_endpoint_produces_slash_v1() {
         assert_eq!(base_url("custom", Some("")), "/v1");
+    }
+
+    // ── wrap_transcript ────────────────────────────────────────────────────────
+
+    #[test]
+    fn wrap_transcript_adds_xml_tags() {
+        assert_eq!(
+            wrap_transcript("hello world"),
+            "<transcript>\nhello world\n</transcript>"
+        );
+    }
+
+    #[test]
+    fn wrap_transcript_preserves_internal_newlines() {
+        assert_eq!(
+            wrap_transcript("line one\nline two"),
+            "<transcript>\nline one\nline two\n</transcript>"
+        );
+    }
+
+    // ── strip_meta_commentary ──────────────────────────────────────────────────
+
+    #[test]
+    fn strip_meta_commentary_passes_clean_text_through() {
+        let input = "Der Algorithmus initialisiert die Variable.";
+        assert_eq!(strip_meta_commentary(input), input);
+    }
+
+    #[test]
+    fn strip_meta_commentary_removes_german_trailing_block() {
+        let input = "Der Text ist bereinigt.\n\nIch habe die folgenden Änderungen vorgenommen:\n- Punctuation\n- Groß-/Kleinschreibung";
+        assert_eq!(strip_meta_commentary(input), "Der Text ist bereinigt.");
+    }
+
+    #[test]
+    fn strip_meta_commentary_removes_english_trailing_block() {
+        let input = "The text is cleaned.\n\nI made the following changes:\n- Added punctuation\n- Fixed capitalization";
+        assert_eq!(strip_meta_commentary(input), "The text is cleaned.");
+    }
+
+    #[test]
+    fn strip_meta_commentary_is_case_insensitive() {
+        let input = "Text.\n\nHere are the Changes:\n- one\n- two";
+        assert_eq!(strip_meta_commentary(input), "Text.");
+    }
+
+    #[test]
+    fn strip_meta_commentary_keeps_whole_text_when_trigger_at_start() {
+        // If the entire output is a meta block, don't nuke it — that signals
+        // a complete failure and the original text should be preserved for
+        // the caller to handle.
+        let input = "Ich habe folgende Änderungen vorgenommen:\n- foo";
+        assert_eq!(strip_meta_commentary(input), input);
+    }
+
+    #[test]
+    fn strip_meta_commentary_ignores_mid_sentence_trigger_words() {
+        // Trigger phrase mid-text without the \n\n paragraph break should
+        // not cause stripping.
+        let input = "Wir reden über Änderungen: welche gut sind und welche nicht.";
+        assert_eq!(strip_meta_commentary(input), input);
+    }
+
+    #[test]
+    fn strip_meta_commentary_takes_earliest_trigger_when_multiple_present() {
+        let input = "Text.\n\nHere are the changes:\n- a\n\nSummary of changes:\n- b";
+        assert_eq!(strip_meta_commentary(input), "Text.");
+    }
+
+    #[test]
+    fn strip_meta_commentary_trims_trailing_whitespace() {
+        let input = "Text.   \n\nChanges made:\n- x";
+        assert_eq!(strip_meta_commentary(input), "Text.");
+    }
+
+    #[test]
+    fn strip_meta_commentary_handles_empty_string() {
+        assert_eq!(strip_meta_commentary(""), "");
     }
 }
