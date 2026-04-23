@@ -57,6 +57,8 @@
     },
     "general": {
       "language": "Sprache",
+      "uiLanguage": "Oberflächensprache",
+      "uiLanguageDescription": "Sprache der VOCA-Benutzeroberfläche. Hat keinen Einfluss auf die Transkription.",
       "theme": "Design",
       "themeDark": "Dunkel",
       "themeLight": "Hell",
@@ -78,6 +80,17 @@
       "mode": {
         "cloud": "Cloud",
         "local": "Lokal"
+      },
+      "language": "Sprache der Aufnahme",
+      "languageDescription": "Sprach-Hinweis für die Transkription. \"Automatisch\" lässt den Anbieter die Sprache selbst erkennen.",
+      "languageOption": {
+        "auto": "Automatisch",
+        "de": "Deutsch",
+        "en": "English",
+        "es": "Español",
+        "fr": "Français",
+        "pt": "Português",
+        "it": "Italiano"
       },
       "apiKey": "API Key",
       "localModel": "Lokales Modell",

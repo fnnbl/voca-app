@@ -79,7 +79,10 @@ export function GeneralSettings({ settings, onChange }: Props) {
       <p className="page-eyebrow">einstellungen</p>
       <h1 className="page-title" style={{ marginBottom: 28 }}>{t('settings.nav.general')}</h1>
 
-      <SettingRow label={t('settings.general.language')}>
+      <SettingRow
+        label={t('settings.general.uiLanguage')}
+        description={t('settings.general.uiLanguageDescription')}
+      >
         <div className="v-seg">
           {(['de', 'en'] as const).map((lang) => (
             <button

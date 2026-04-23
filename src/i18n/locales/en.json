@@ -57,6 +57,8 @@
     },
     "general": {
       "language": "Language",
+      "uiLanguage": "Interface language",
+      "uiLanguageDescription": "Language of the VOCA user interface. Does not affect transcription.",
       "theme": "Theme",
       "themeDark": "Dark",
       "themeLight": "Light",
@@ -78,6 +80,17 @@
       "mode": {
         "cloud": "Cloud",
         "local": "Local"
+      },
+      "language": "Spoken language",
+      "languageDescription": "Language hint for transcription. \"Auto\" lets the provider detect the language itself.",
+      "languageOption": {
+        "auto": "Auto",
+        "de": "Deutsch",
+        "en": "English",
+        "es": "Español",
+        "fr": "Français",
+        "pt": "Português",
+        "it": "Italiano"
       },
       "apiKey": "API Key",
       "localModel": "Local model",

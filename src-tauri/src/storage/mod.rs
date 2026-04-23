@@ -227,7 +227,8 @@ pub(crate) fn defaults() -> serde_json::Value {
             "localModelSize": "base",
             "cloudProvider": "groq",
             "cloudModel": "",
-            "cloudCustomEndpoint": ""
+            "cloudCustomEndpoint": "",
+            "language": "auto"
         },
         "aiEnhancement": {
             "enabled": false,
@@ -294,6 +295,34 @@ mod tests {
     #[test]
     fn defaults_transcription_mode_is_cloud() {
         assert_eq!(defaults()["transcription"]["mode"], "cloud");
+    }
+
+    #[test]
+    fn defaults_transcription_language_is_auto() {
+        assert_eq!(defaults()["transcription"]["language"], "auto");
+    }
+
+    #[test]
+    fn merge_fills_missing_transcription_language_with_auto() {
+        // Simulates an existing install upgrading to the version that
+        // introduces `transcription.language`: the key is absent and must
+        // be backfilled to "auto", not copied from general.language.
+        let loaded = serde_json::json!({
+            "general": { "language": "de" },
+            "transcription": { "mode": "cloud", "cloudProvider": "groq" }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["transcription"]["language"], "auto");
+        assert_eq!(merged["general"]["language"], "de");
+    }
+
+    #[test]
+    fn merge_preserves_explicit_transcription_language() {
+        let loaded = serde_json::json!({
+            "transcription": { "language": "en" }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["transcription"]["language"], "en");
     }
 
     #[test]

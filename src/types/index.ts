@@ -27,6 +27,7 @@ export interface Settings {
     cloudProvider: 'openai' | 'groq' | 'deepgram' | 'elevenlabs' | 'gemini' | 'custom'
     cloudModel: string
     cloudCustomEndpoint: string
+    language: TranscriptionLanguage
   }
   aiEnhancement: {
     enabled: boolean
@@ -52,6 +53,18 @@ export interface Settings {
     targetAppTracking: boolean
   }
 }
+
+export type TranscriptionLanguage = 'auto' | 'de' | 'en' | 'es' | 'fr' | 'pt' | 'it'
+
+export const TRANSCRIPTION_LANGUAGES: TranscriptionLanguage[] = [
+  'auto',
+  'de',
+  'en',
+  'es',
+  'fr',
+  'pt',
+  'it',
+]
 
 export type AppState = 'idle' | 'recording' | 'processing' | 'inserting' | 'error'
 
