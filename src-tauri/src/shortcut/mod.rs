@@ -3,7 +3,8 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
     audio::{AudioBuffer, AudioRecordingState},
-    AppState, AppStateManager, RecordingStateChangedPayload, SelectedAudioDevice,
+    AppState, AppStateManager, AudioDuckingState, RecordingStateChangedPayload,
+    SelectedAudioDevice,
 };
 
 pub const DEFAULT_SHORTCUT: &str = "Ctrl+Super";
@@ -105,6 +106,7 @@ fn start_recording(app: &AppHandle) {
         crate::errors::transition_to_error(app);
         return;
     }
+    maybe_duck_audio(app);
     let manager = app.state::<AppStateManager>();
     *manager.0.lock().unwrap() = AppState::Recording;
     emit_state(app, AppState::Recording);
@@ -114,6 +116,7 @@ fn stop_recording(app: &AppHandle) {
     let audio = app.state::<AudioRecordingState>();
     match crate::audio::stop(&audio) {
         Ok(wav_bytes) => {
+            restore_ducked_audio(app);
             *app.state::<AudioBuffer>().0.lock().unwrap() = Some(wav_bytes);
             let manager = app.state::<AppStateManager>();
             *manager.0.lock().unwrap() = AppState::Processing;
@@ -124,6 +127,7 @@ fn stop_recording(app: &AppHandle) {
             });
         }
         Err(e) => {
+            restore_ducked_audio(app);
             crate::errors::emit(app, "RECORDING_FAILED", &e);
             crate::errors::transition_to_error(app);
         }
@@ -136,6 +140,7 @@ fn cancel_recording(app: &AppHandle) {
     // keeps the UI pill showing continuously (no Recording→Idle→Recording flash).
     let audio = app.state::<AudioRecordingState>();
     let _ = crate::audio::stop(&audio);
+    restore_ducked_audio(app);
     let manager = app.state::<AppStateManager>();
     *manager.0.lock().unwrap() = AppState::Idle;
 
@@ -152,4 +157,23 @@ fn cancel_recording(app: &AppHandle) {
 fn emit_state(app: &AppHandle, state: AppState) {
     crate::update_tray_icon(app, &state);
     let _ = app.emit("recording-state-changed", RecordingStateChangedPayload { state });
+}
+
+fn maybe_duck_audio(app: &AppHandle) {
+    let settings = crate::storage::load(app).unwrap_or_default();
+    let enabled = settings["transcription"]["muteOtherAudio"]
+        .as_bool()
+        .unwrap_or(true);
+    if !enabled {
+        return;
+    }
+    let guard = crate::audio_ducking::mute_others();
+    *app.state::<AudioDuckingState>().0.lock().unwrap() = Some(guard);
+}
+
+fn restore_ducked_audio(app: &AppHandle) {
+    let guard = app.state::<AudioDuckingState>().0.lock().unwrap().take();
+    if let Some(g) = guard {
+        crate::audio_ducking::restore(g);
+    }
 }

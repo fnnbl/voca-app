@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod audio;
+pub mod audio_ducking;
 pub mod clipboard;
 pub mod commands;
 pub mod errors;
@@ -40,6 +41,7 @@ pub struct LastPressTime(pub Mutex<Option<std::time::Instant>>);
 pub struct LastTapTime(pub Mutex<Option<std::time::Instant>>);
 pub struct IsToggleSession(pub Mutex<bool>);
 pub struct SelectedAudioDevice(pub Mutex<Option<String>>);
+pub struct AudioDuckingState(pub Mutex<Option<audio_ducking::DuckingGuard>>);
 pub struct DownloadCancelFlag(pub Arc<Mutex<bool>>);
 pub struct HotkeyStateWrapper(pub std::sync::Arc<hotkey::HotkeyState>);
 
@@ -86,6 +88,7 @@ pub fn run() {
         .manage(LastTapTime(Mutex::new(None)))
         .manage(IsToggleSession(Mutex::new(false)))
         .manage(SelectedAudioDevice(Mutex::new(None)))
+        .manage(AudioDuckingState(Mutex::new(None)))
         .manage(DownloadCancelFlag(Arc::new(Mutex::new(false))))
         .manage(HotkeyStateWrapper(Arc::new(hotkey::HotkeyState::new())))
         .setup(|app| {
