@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
+import { emit, listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-shell'
 import { useShortcutCapture, sortShortcut } from '../hooks/useShortcutCapture'
 import { DEFAULT_SHORTCUT } from '../types'
@@ -428,6 +428,7 @@ function StepUseCase({ onNext }: { onNext: () => void }) {
 type TestAppState = 'idle' | 'recording' | 'processing' | 'inserting' | 'error'
 
 function StepTest({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation()
   const [appState, setAppState] = useState<TestAppState>('idle')
   const [text, setText] = useState('')
 
@@ -447,6 +448,25 @@ function StepTest({ onNext }: { onNext: () => void }) {
       unlistenResult.then((fn) => fn())
     }
   }, [])
+
+  // First-meeting ceremony: unlock the shortcut, reveal the pill, and send
+  // the localised bubble text along so the pill window doesn't need its own
+  // i18n state. Only runs once per onboarding — the effect's empty deps
+  // mean re-entering the step (e.g. via back) would re-fire, but the pill's
+  // animations are one-shot by design and StepTest is rarely revisited.
+  useEffect(() => {
+    (async () => {
+      try {
+        await invoke('unlock_recording')
+        await invoke('show_pill')
+      } catch (e) {
+        console.error('failed to unlock pill for test step:', e)
+      }
+      emit('pill-animate-reveal', {
+        bubble: t('onboarding.pill.bubble', { defaultValue: 'Hi — drück jetzt deinen Shortcut und sag mal was ein.' }),
+      }).catch(() => {})
+    })()
+  }, [t])
 
   const trimmed = text.trim()
   const wordCount = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0

@@ -31,6 +31,9 @@
       "description": "Einmal drücken zum Starten, nochmal drücken zum Stoppen.",
       "next": "Weiter"
     },
+    "pill": {
+      "bubble": "Hi — drück jetzt deinen Shortcut und sag mal was ein."
+    },
     "useCase": {
       "title": "Womit arbeitest du?",
       "description": "VOCA merkt sich typische Begriffe aus deinem Fachbereich, damit Whisper sie gleich richtig versteht. Mehrfachauswahl ist OK. Kannst du später jederzeit anpassen.",
