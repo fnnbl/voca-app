@@ -20,7 +20,6 @@ const WAVE_BARS = 14
 // Test step mounts. Bubble auto-dismisses after BUBBLE_MS or on the first
 // actual recording, whichever comes first. If the user stays idle for
 // WIGGLE_AFTER_MS, the pill does a single attention wiggle.
-const REVEAL_POP_MS = 820
 const BUBBLE_MS = 12000
 const WIGGLE_AFTER_MS = 7000
 const WIGGLE_DURATION_MS = 900
@@ -63,15 +62,27 @@ export default function StatusBar() {
     return () => { unlisten.then((fn) => fn()) }
   }, [])
 
-  // Reveal ceremony: fires once per onboarding completion. We drive both
-  // the outer swoop and the child's ember-to-dark colour transition via
-  // the Web Animations API instead of CSS classes — CSS keyframes were
-  // being swallowed by the OS compositor in the first ~200 ms after the
-  // hidden webview became visible, so the user saw the pill appear with
-  // no motion. Imperative .animate() bypasses that whole class of timing
-  // bugs; the browser runs it deterministically on the main frame.
+  // Reveal ceremony: fires once per onboarding completion. Diagnostic
+  // logging included while we track down why production builds weren't
+  // showing the animation.
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[voca-pill] status bar mounted, registering pill-animate-reveal listener')
     const unlisten = listen<{ bubble?: string }>('pill-animate-reveal', (e) => {
+      // eslint-disable-next-line no-console
+      console.log('[voca-pill] pill-animate-reveal event received', e.payload)
+
+      // Diagnostic: unmistakable visible marker — if the user doesn't see
+      // this yellow tag appear in the pill window for 3 seconds, the event
+      // isn't reaching the listener at all (or the listener isn't mounted
+      // yet when the event fires).
+      const marker = document.createElement('div')
+      marker.textContent = 'EVENT OK'
+      marker.style.cssText =
+        'position:fixed;top:4px;left:4px;background:#FFD600;color:#111;padding:3px 8px;z-index:99999;font-size:10px;font-family:sans-serif;font-weight:700;border-radius:3px;pointer-events:none;'
+      document.body.appendChild(marker)
+      setTimeout(() => marker.remove(), 3000)
+
       const text = e.payload?.bubble ?? null
       if (text) {
         setBubbleText(text)
@@ -88,6 +99,8 @@ export default function StatusBar() {
       // Reset and schedule the attention wiggle.
       if (wiggleTimerRef.current) clearTimeout(wiggleTimerRef.current)
       wiggleTimerRef.current = setTimeout(() => {
+        // eslint-disable-next-line no-console
+        console.log('[voca-pill] wiggle timer fired')
         playWiggleAnimation()
       }, WIGGLE_AFTER_MS)
     })
@@ -99,77 +112,78 @@ export default function StatusBar() {
   }, [])
 
   function playRevealAnimation() {
+    // eslint-disable-next-line no-console
+    console.log('[voca-pill] playRevealAnimation fired')
     const outer = outerRef.current
     const content = contentRef.current
-    if (!outer) return
-
-    // Kill any in-flight CSS or WAAPI animations on the elements we're
-    // about to touch — otherwise the pillFadeIn that fires on
-    // `.pill-collapsed` mount (or a previous reveal pass) competes with
-    // the inline styles and either wins or cancels ours out.
-    outer.getAnimations?.().forEach((a) => a.cancel())
-    content?.getAnimations?.().forEach((a) => a.cancel())
+    // eslint-disable-next-line no-console
+    console.log('[voca-pill] refs attached — outer:', !!outer, 'content:', !!content)
+    if (!content) return
 
     if (prefersReducedMotion()) {
+      // eslint-disable-next-line no-console
+      console.log('[voca-pill] prefers-reduced-motion is on, skipping animation')
       return
     }
 
-    // Stage the starting pose with transition disabled so the browser
-    // paints it at scale(0) first, then re-enable transition and swap to
-    // the target pose. The forced reflow between the two phases is the
-    // key — without it the browser coalesces both style writes into one
-    // paint and we never see the animation.
-    outer.style.transition = 'none'
-    outer.style.transformOrigin = 'center bottom'
-    outer.style.transform = 'scale(0) rotate(-200deg)'
-    outer.style.opacity = '0'
+    // --- Diagnostic flash ------------------------------------------------
+    // Regardless of what happens with the structured animation below,
+    // briefly flip the pill's outline to hot magenta for 1.5 s. If the
+    // user doesn't see this, the event isn't reaching the listener OR the
+    // ref isn't bound to the right element — both require dev-mode
+    // debugging. If they DO see it, animations work but our staging has
+    // issues.
+    content.style.outline = '3px solid magenta'
+    content.style.outlineOffset = '6px'
+    setTimeout(() => {
+      if (content) {
+        content.style.outline = ''
+        content.style.outlineOffset = ''
+      }
+    }, 1500)
 
-    if (content) {
-      content.style.transition = 'none'
-      content.style.backgroundColor = EMBER
-      content.style.boxShadow = EMBER_SHADOW
+    // --- Simplified reveal: scale + ember glow -------------------------
+    // Earlier iterations tried outer-wrapper rotation + multi-stage
+    // transforms; something in the production webview kept discarding
+    // them. Pared down to the most basic possible transition: content
+    // snaps to a larger, ember-coloured state, then transitions back to
+    // rest. Uses getBoundingClientRect() for the reflow (more reliable
+    // than offsetHeight in some WebView2 builds).
+    content.style.transition = 'none'
+    content.style.backgroundColor = EMBER
+    content.style.boxShadow = EMBER_SHADOW
+
+    if (outer) {
+      outer.style.transition = 'none'
+      outer.style.transformOrigin = 'center bottom'
+      outer.style.transform = 'scale(0.3)'
     }
 
-    // Force the browser to lay out and paint the starting state before we
-    // queue the transition.
-    void outer.offsetHeight
+    content.getBoundingClientRect()
 
     requestAnimationFrame(() => {
-      // Stage 1 — explosive pop to an overshoot peak.
-      outer.style.transition =
-        'transform 360ms cubic-bezier(0.22, 1.5, 0.36, 1), opacity 180ms ease-out'
-      outer.style.transform = 'scale(1.55) rotate(-12deg) translateY(-10px)'
-      outer.style.opacity = '1'
+      content.style.transition =
+        'background-color 700ms ease-out, box-shadow 700ms ease-out'
+      content.style.backgroundColor = PILL_COLLAPSED_BG
+      content.style.boxShadow = PILL_COLLAPSED_SHADOW
 
-      // Stage 2 — settle back to rest with the colour cooling from ember
-      // to the normal dark. The delay matches stage 1 so the two stages
-      // cross seamlessly.
-      setTimeout(() => {
-        outer.style.transition = 'transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1)'
-        outer.style.transform = 'scale(1) rotate(0) translateY(0)'
+      if (outer) {
+        outer.style.transition =
+          'transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+        outer.style.transform = 'scale(1)'
+      }
+    })
 
-        if (content) {
-          content.style.transition =
-            'background-color 520ms ease-out, box-shadow 520ms ease-out'
-          content.style.backgroundColor = PILL_COLLAPSED_BG
-          content.style.boxShadow = PILL_COLLAPSED_SHADOW
-        }
-      }, 380)
-
-      // Stage 3 — clear the inline overrides so future state changes
-      // (switching to pill-wave on record, etc.) pick up normal CSS.
-      setTimeout(() => {
+    setTimeout(() => {
+      content.style.transition = ''
+      content.style.backgroundColor = ''
+      content.style.boxShadow = ''
+      if (outer) {
         outer.style.transition = ''
         outer.style.transform = ''
-        outer.style.opacity = ''
         outer.style.transformOrigin = ''
-        if (content) {
-          content.style.transition = ''
-          content.style.backgroundColor = ''
-          content.style.boxShadow = ''
-        }
-      }, REVEAL_POP_MS + 120)
-    })
+      }
+    }, 820)
   }
 
   function playWiggleAnimation() {
