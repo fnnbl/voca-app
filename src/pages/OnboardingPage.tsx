@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-shell'
@@ -43,8 +44,11 @@ const MODEL_SIZES: { value: ModelSize; label: string; approxMb: number }[] = [
   { value: 'medium', label: 'Medium', approxMb: 1500 },
 ]
 
-const STEPS = ['welcome', 'transcription', 'shortcut', 'test', 'ai', 'done'] as const
+const STEPS = ['welcome', 'transcription', 'shortcut', 'useCase', 'test', 'ai', 'done'] as const
 type Step = typeof STEPS[number]
+
+type UseCaseId = 'dev' | 'pm' | 'content' | 'design' | 'consulting'
+const USE_CASE_IDS: UseCaseId[] = ['dev', 'pm', 'content', 'design', 'consulting']
 
 export function OnboardingPage({ settings, onComplete }: Props) {
   const [step, setStep] = useState<Step>('welcome')
@@ -94,6 +98,7 @@ export function OnboardingPage({ settings, onComplete }: Props) {
       {step === 'welcome'      && <StepWelcome onNext={next} />}
       {step === 'transcription' && <StepTranscription settings={local} onChange={setLocal} onNext={next} />}
       {step === 'shortcut'     && <StepShortcut settings={local} onChange={setLocal} onNext={next} />}
+      {step === 'useCase'      && <StepUseCase onNext={next} />}
       {step === 'test'         && <StepTest onNext={next} />}
       {step === 'ai'           && <StepAi settings={local} onChange={setLocal} onNext={next} />}
       {step === 'done'         && <StepFinale settings={local} onFinish={finish} />}
@@ -326,6 +331,98 @@ function StepShortcut({
   )
 }
 
+/* ── Use-case (dictionary seeding) ──────────────────────────────────────── */
+
+function StepUseCase({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation()
+  const [selected, setSelected] = useState<Set<UseCaseId>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
+
+  function toggle(id: UseCaseId) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleNext() {
+    if (selected.size === 0) {
+      onNext()
+      return
+    }
+    setSubmitting(true)
+    try {
+      await invoke('seed_dictionary_with_use_cases', { useCases: Array.from(selected) })
+    } catch (e) {
+      console.error('dictionary seeding failed:', e)
+    } finally {
+      setSubmitting(false)
+      onNext()
+    }
+  }
+
+  return (
+    <div className="onb-stage">
+      <div className="onb-eyebrow">schritt 03 · fachbereich</div>
+      <h1 className="onb-title">{t('onboarding.useCase.title', 'Womit arbeitest du?')}</h1>
+      <p className="onb-lede">
+        {t('onboarding.useCase.description', 'VOCA merkt sich typische Begriffe aus deinem Fachbereich, damit Whisper sie gleich richtig versteht. Mehrfachauswahl ist OK. Kannst du später jederzeit anpassen.')}
+      </p>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 10,
+          marginBottom: 28,
+          width: '100%',
+          maxWidth: 720,
+        }}
+      >
+        {USE_CASE_IDS.map((id) => {
+          const isOn = selected.has(id)
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => toggle(id)}
+              className={`prov-card${isOn ? ' is-active' : ''}`}
+              style={{ textAlign: 'left' }}
+            >
+              <div className="prov-name">
+                {t(`onboarding.useCase.category.${id}.label`)}
+              </div>
+              <div className="prov-desc">
+                {t(`onboarding.useCase.category.${id}.description`)}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <button
+          className="v-btn accent"
+          onClick={handleNext}
+          disabled={submitting}
+        >
+          {selected.size > 0
+            ? t('onboarding.useCase.next', 'Weiter')
+            : t('onboarding.useCase.skip', 'Überspringen')}
+          <ChevronIcon />
+        </button>
+        {selected.size > 0 && (
+          <span className="v-meta">
+            {t('onboarding.useCase.selectionHint', { count: selected.size, defaultValue: '{{count}} ausgewählt' })}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ── Test ────────────────────────────────────────────────────────────────── */
 
 type TestAppState = 'idle' | 'recording' | 'processing' | 'inserting' | 'error'
@@ -369,7 +466,7 @@ function StepTest({ onNext }: { onNext: () => void }) {
 
   return (
     <div className="onb-stage" style={{ textAlign: 'center', alignItems: 'center' }}>
-      <div className="onb-eyebrow" style={{ alignSelf: 'center' }}>schritt 03 · dein erster versuch</div>
+      <div className="onb-eyebrow" style={{ alignSelf: 'center' }}>schritt 04 · dein erster versuch</div>
       <h1 className="onb-title" style={{ textAlign: 'center', maxWidth: '16ch' }}>
         Halt den Shortcut und sag irgendwas.
       </h1>
@@ -453,7 +550,7 @@ function StepAi({
 
   return (
     <div className="onb-stage">
-      <div className="onb-eyebrow">schritt 04 · optional</div>
+      <div className="onb-eyebrow">schritt 05 · optional</div>
       <h1 className="onb-title">Rohtext oder <em>poliert</em>?</h1>
       <p className="onb-lede">
         Optional: VOCA leitet dein Transkript durch ein Sprachmodell — räumt Füllwörter auf, korrigiert Grammatik. Ton bleibt deiner.

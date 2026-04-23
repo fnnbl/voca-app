@@ -31,6 +31,35 @@
       "description": "Einmal drücken zum Starten, nochmal drücken zum Stoppen.",
       "next": "Weiter"
     },
+    "useCase": {
+      "title": "Womit arbeitest du?",
+      "description": "VOCA merkt sich typische Begriffe aus deinem Fachbereich, damit Whisper sie gleich richtig versteht. Mehrfachauswahl ist OK. Kannst du später jederzeit anpassen.",
+      "skip": "Überspringen",
+      "next": "Weiter",
+      "selectionHint": "{{count}} ausgewählt",
+      "category": {
+        "dev": {
+          "label": "Software Developer",
+          "description": "Coding, APIs, Pull Requests, Frameworks"
+        },
+        "pm": {
+          "label": "Product / Project Manager",
+          "description": "Sprints, Roadmap, OKRs, Stakeholder"
+        },
+        "content": {
+          "label": "Content Creator",
+          "description": "SEO, Copywriting, Engagement, Analytics"
+        },
+        "design": {
+          "label": "Designer",
+          "description": "Figma, Wireframes, Design Systems"
+        },
+        "consulting": {
+          "label": "Consulting / Business",
+          "description": "Workshops, Deliverables, Proposals"
+        }
+      }
+    },
     "test": {
       "title": "Kurzer Test",
       "description": "Drücke deinen Shortcut und sprich etwas.",
