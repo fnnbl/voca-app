@@ -87,7 +87,8 @@ pub async fn process(app: AppHandle) {
         }
     };
 
-    let expanded_text = apply_snippets(&app, raw_text);
+    let filtered_text = maybe_remove_fillers(&app, &settings, raw_text);
+    let expanded_text = apply_snippets(&app, filtered_text);
     let pre_enhance = expanded_text.clone();
     let final_text = maybe_enhance(&app, &settings, expanded_text).await;
 
@@ -610,6 +611,69 @@ fn apply_snippets(app: &AppHandle, text: String) -> String {
     apply_snippets_to_text(text, &snippets)
 }
 
+fn maybe_remove_fillers(
+    app: &AppHandle,
+    settings: &serde_json::Value,
+    text: String,
+) -> String {
+    if !settings["transcription"]["removeFillerWords"]
+        .as_bool()
+        .unwrap_or(false)
+    {
+        return text;
+    }
+    let fillers = match crate::storage::load_fillers(app) {
+        Ok(list) => list,
+        Err(_) => return text,
+    };
+    let words: Vec<String> = fillers.into_iter().map(|e| e.word).collect();
+    apply_fillers_to_text(text, &words)
+}
+
+pub(crate) fn apply_fillers_to_text(text: String, fillers: &[String]) -> String {
+    if fillers.is_empty() {
+        return text;
+    }
+    let mut result = text;
+    for filler in fillers {
+        let trimmed = filler.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let pattern = format!(r"(?i)\b{}\b", regex_escape(trimmed));
+        if let Ok(re) = regex::Regex::new(&pattern) {
+            result = re.replace_all(&result, "").into_owned();
+        }
+    }
+    normalize_after_filler_removal(&result)
+}
+
+fn normalize_after_filler_removal(s: &str) -> String {
+    // Collapse runs of whitespace into single spaces. STT output is typically
+    // single-line so this is safe; preserving multi-line structure would need
+    // a smarter collapse.
+    let collapsed: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    // Remove the space before sentence punctuation ("text , word" → "text, word").
+    let mut cleaned = String::with_capacity(collapsed.len());
+    let mut prev: char = ' ';
+    for ch in collapsed.chars() {
+        if matches!(ch, ',' | '.' | '!' | '?' | ';' | ':') && prev == ' ' {
+            cleaned.pop();
+        }
+        cleaned.push(ch);
+        prev = ch;
+    }
+    // Strip orphan punctuation left over when a filler was the first token
+    // (e.g., "Also, ich bin" → after removal "", ich bin" → "ich bin").
+    cleaned
+        .trim()
+        .trim_start_matches(|c: char| {
+            c.is_whitespace() || matches!(c, ',' | ';' | '.' | '!' | '?' | ':')
+        })
+        .trim_start()
+        .to_owned()
+}
+
 pub(crate) fn apply_snippets_to_text(text: String, snippets: &[crate::storage::Snippet]) -> String {
     let enabled: Vec<_> = snippets.iter().filter(|s| s.enabled).collect();
     if enabled.is_empty() {
@@ -758,6 +822,78 @@ mod tests {
 
     fn make_entry(word: &str) -> DictionaryEntry {
         DictionaryEntry { id: "test".into(), word: word.into() }
+    }
+
+    // ── apply_fillers_to_text ─────────────────────────────────────────────────
+
+    #[test]
+    fn fillers_empty_list_returns_text_unchanged() {
+        assert_eq!(apply_fillers_to_text("ich bin müde".into(), &[]), "ich bin müde");
+    }
+
+    #[test]
+    fn fillers_remove_single_whole_word() {
+        let list = vec!["halt".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("ich bin halt müde".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    #[test]
+    fn fillers_are_case_insensitive() {
+        let list = vec!["also".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("Also, das ist ALSO nicht okay".into(), &list),
+            "das ist nicht okay"
+        );
+    }
+
+    #[test]
+    fn fillers_respect_word_boundaries() {
+        // "so" must not eat "also" or "sort"
+        let list = vec!["so".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("also sprach er so laut".into(), &list),
+            "also sprach er laut"
+        );
+    }
+
+    #[test]
+    fn fillers_remove_multiple_distinct_words() {
+        let list = vec!["um".to_string(), "ähm".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("um ich bin ähm müde".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    #[test]
+    fn fillers_clean_up_orphaned_punctuation_spacing() {
+        let list = vec!["also".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("ich bin also, müde".into(), &list),
+            "ich bin, müde"
+        );
+    }
+
+    #[test]
+    fn fillers_trim_leading_and_trailing_whitespace() {
+        let list = vec!["also".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("also ich bin müde also".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    #[test]
+    fn fillers_skip_empty_entries_in_list() {
+        // Empty/whitespace entries in the list must be ignored, not match everything.
+        let list = vec!["".to_string(), "  ".to_string(), "halt".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("ich bin halt müde".into(), &list),
+            "ich bin müde"
+        );
     }
 
     // ── is_auto_language ──────────────────────────────────────────────────────

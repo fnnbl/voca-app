@@ -6,13 +6,14 @@ import { TranscriptionSettings } from './settings/TranscriptionSettings'
 import { AiSettings } from './settings/AiSettings'
 import { SnippetsSettings } from './settings/SnippetsSettings'
 import { DictionarySettings } from './settings/DictionarySettings'
+import { FillersSettings } from './settings/FillersSettings'
 import { HistoryPage } from './HistoryPage'
 import { StatsPage } from './StatsPage'
 import { DEFAULT_SHORTCUT } from '../types'
 import type { Settings } from '../types'
 import { formatShortcut } from '../shortcut/format'
 
-type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'general'
+type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general'
 
 interface Props {
   settings: Settings
@@ -65,6 +66,9 @@ export function SettingsPage({ settings, onSave }: Props) {
           <NavItem id="dictionary" active={active} onClick={setActive} icon={<BookIcon />}>
             {t('settings.nav.dictionary')}
           </NavItem>
+          <NavItem id="fillers" active={active} onClick={setActive} icon={<EraserIcon />}>
+            {t('settings.nav.fillers')}
+          </NavItem>
           <NavItem id="general" active={active} onClick={setActive} icon={<SettingsIcon />}>
             {t('settings.nav.general')}
           </NavItem>
@@ -90,6 +94,7 @@ export function SettingsPage({ settings, onSave }: Props) {
           {active === 'ai'            && <AiSettings settings={settings} onChange={handleChange} />}
           {active === 'snippets'      && <SnippetsSettings />}
           {active === 'dictionary'    && <DictionarySettings />}
+          {active === 'fillers'       && <FillersSettings settings={settings} onChange={handleChange} />}
           {active === 'general'       && <GeneralSettings settings={settings} onChange={handleChange} />}
         </div>
       </main>
@@ -147,6 +152,9 @@ function TextIcon() {
 }
 function BookIcon() {
   return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 3v10l2-1h9V3zM4.5 3v9"/></svg>
+}
+function EraserIcon() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 11.5l-1 1a1 1 0 0 0 0 1.4l0.6 0.6a1 1 0 0 0 1.4 0l7-7a1 1 0 0 0 0-1.4L9 3a1 1 0 0 0-1.4 0L3.5 7.1z"/><path d="M6 14h8"/></svg>
 }
 function SettingsIcon() {
   return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><circle cx="8" cy="8" r="1.5"/><path d="M8 2v1.5M8 12.5V14M13 8h-1.5M4.5 8H3M11.5 4.5l-1 1M5.5 10.5l-1 1M11.5 11.5l-1-1M5.5 5.5l-1-1"/></svg>

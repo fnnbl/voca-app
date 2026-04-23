@@ -65,6 +65,13 @@ pub struct DictionaryEntry {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FillerEntry {
+    pub id: String,
+    pub word: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HistoryEntry {
     pub id: String,
     pub timestamp_ms: u64,
@@ -90,6 +97,9 @@ fn snippets_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 fn dictionary_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map(|p| p.join("dictionary.json")).map_err(|e| format!("STORAGE_ERROR: {e}"))
+}
+fn fillers_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_data_dir().map(|p| p.join("fillers.json")).map_err(|e| format!("STORAGE_ERROR: {e}"))
 }
 fn history_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map(|p| p.join("history.json")).map_err(|e| format!("STORAGE_ERROR: {e}"))
@@ -120,6 +130,12 @@ pub fn load_dictionary(app: &AppHandle) -> Result<Vec<DictionaryEntry>, String> 
 }
 pub fn save_dictionary(app: &AppHandle, entries: &[DictionaryEntry]) -> Result<(), String> {
     save_to_path_raw(&dictionary_path(app)?, entries)
+}
+pub fn load_fillers(app: &AppHandle) -> Result<Vec<FillerEntry>, String> {
+    load_vec_from_path(&fillers_path(app)?)
+}
+pub fn save_fillers(app: &AppHandle, entries: &[FillerEntry]) -> Result<(), String> {
+    save_to_path_raw(&fillers_path(app)?, entries)
 }
 pub fn load_history(app: &AppHandle) -> Result<Vec<HistoryEntry>, String> {
     load_vec_from_path(&history_path(app)?)
@@ -228,7 +244,8 @@ pub(crate) fn defaults() -> serde_json::Value {
             "cloudProvider": "groq",
             "cloudModel": "",
             "cloudCustomEndpoint": "",
-            "language": "auto"
+            "language": "auto",
+            "removeFillerWords": false
         },
         "aiEnhancement": {
             "enabled": false,
@@ -300,6 +317,22 @@ mod tests {
     #[test]
     fn defaults_transcription_language_is_auto() {
         assert_eq!(defaults()["transcription"]["language"], "auto");
+    }
+
+    #[test]
+    fn defaults_filler_removal_is_off() {
+        // Opt-in only — deletion is destructive, same principle as
+        // privacy.targetAppTracking.
+        assert_eq!(defaults()["transcription"]["removeFillerWords"], false);
+    }
+
+    #[test]
+    fn merge_fills_missing_filler_removal_flag_with_false() {
+        let loaded = serde_json::json!({
+            "transcription": { "mode": "cloud" }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["transcription"]["removeFillerWords"], false);
     }
 
     #[test]
