@@ -53,7 +53,8 @@
       "transcription": "Transkription",
       "ai": "KI-Nachbearbeitung",
       "snippets": "Snippets",
-      "dictionary": "Wörterbuch"
+      "dictionary": "Wörterbuch",
+      "fillers": "Füllwörter"
     },
     "general": {
       "language": "Sprache",
@@ -144,6 +145,13 @@
       "title": "Wörterbuch",
       "add": "Eintrag hinzufügen",
       "word": "Begriff"
+    },
+    "fillers": {
+      "title": "Füllwörter",
+      "description": "Wörter aus dieser Liste werden vor der KI-Nachbearbeitung aus der Transkription entfernt, wenn der Toggle oben rechts aktiv ist.",
+      "wordPlaceholder": "z. B. also, halt, quasi",
+      "add": "Hinzufügen",
+      "empty": "Noch keine Füllwörter. Typische Kandidaten: also, halt, ja, quasi, sozusagen, irgendwie, eigentlich, um, uh, ähm, like, you know."
     }
   },
   "errors": {

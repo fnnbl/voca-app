@@ -12,6 +12,11 @@ export interface DictionaryEntry {
   word: string
 }
 
+export interface FillerEntry {
+  id: string
+  word: string
+}
+
 export interface AIPrompt {
   id: string
   name: string
@@ -28,6 +33,7 @@ export interface Settings {
     cloudModel: string
     cloudCustomEndpoint: string
     language: TranscriptionLanguage
+    removeFillerWords: boolean
   }
   aiEnhancement: {
     enabled: boolean

@@ -53,7 +53,8 @@
       "transcription": "Transcription",
       "ai": "AI Enhancement",
       "snippets": "Snippets",
-      "dictionary": "Dictionary"
+      "dictionary": "Dictionary",
+      "fillers": "Filler Words"
     },
     "general": {
       "language": "Language",
@@ -144,6 +145,13 @@
       "title": "Dictionary",
       "add": "Add entry",
       "word": "Term"
+    },
+    "fillers": {
+      "title": "Filler Words",
+      "description": "Words on this list are stripped from the transcription before AI enhancement runs, when the toggle in the top right is on.",
+      "wordPlaceholder": "e.g. um, uh, like, basically",
+      "add": "Add",
+      "empty": "No filler words yet. Common candidates: um, uh, like, you know, basically, literally, actually, right, so, also, halt, quasi."
     }
   },
   "errors": {
