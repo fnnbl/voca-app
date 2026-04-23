@@ -180,6 +180,8 @@ pub fn run() {
             commands::save_dictionary,
             commands::get_snippets,
             commands::save_snippets,
+            commands::get_fillers,
+            commands::save_fillers,
             commands::get_autostart,
             commands::set_autostart,
             commands::get_history,

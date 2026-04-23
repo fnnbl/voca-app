@@ -248,6 +248,16 @@ pub fn save_snippets(app: tauri::AppHandle, snippets: Vec<crate::storage::Snippe
 }
 
 #[tauri::command]
+pub fn get_fillers(app: tauri::AppHandle) -> Result<Vec<crate::storage::FillerEntry>, String> {
+    crate::storage::load_fillers(&app)
+}
+
+#[tauri::command]
+pub fn save_fillers(app: tauri::AppHandle, entries: Vec<crate::storage::FillerEntry>) -> Result<(), String> {
+    crate::storage::save_fillers(&app, &entries)
+}
+
+#[tauri::command]
 pub fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|e| e.to_string())
 }
