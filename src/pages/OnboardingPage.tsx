@@ -165,7 +165,7 @@ function StepWelcome({
       <h1 className="onb-title" style={{ fontSize: 88, marginBottom: 24 }}>
         <span className="v-wordmark" style={{ fontSize: 'inherit' }}>VOCA</span>
       </h1>
-      <p className="onb-lede" style={{ fontSize: 17, maxWidth: '44ch' }}>
+      <p className="onb-lede" style={{ fontSize: 17, maxWidth: '60ch' }}>
         {t('onboarding.welcome.lede', 'Sprich - und dein Text erscheint dort, wo du tippst.')}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
