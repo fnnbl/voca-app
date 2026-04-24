@@ -1,0 +1,307 @@
+{
+  "app": {
+    "name": "VOCA"
+  },
+  "state": {
+    "idle": "Prêt",
+    "recording": "Enregistrement",
+    "processing": "Traitement",
+    "inserting": "Insertion du texte",
+    "error": "Erreur"
+  },
+  "onboarding": {
+    "welcome": {
+      "eyebrow": "bienvenue sur",
+      "lede": "Parle - et ton texte apparaît là où tu taperais.",
+      "cta": "Démarrer",
+      "meta": "moins de 90 secondes"
+    },
+    "transcription": {
+      "eyebrow": "étape 01 · transcription",
+      "title": "Cloud ou <em>local</em> ?",
+      "lede": "VOCA fonctionne avec des services cloud rapides ou en local sur ton ordinateur - entièrement hors ligne. Tu peux changer à tout moment.",
+      "recommended": "recommandé",
+      "providers": {
+        "groq": {
+          "meta": "whisper turbo · gratuit",
+          "desc": "Whisper large-v3-turbo. L'option la plus rapide - le plan gratuit suffit au quotidien."
+        },
+        "openai": {
+          "meta": "whisper-1 · payant",
+          "desc": "Whisper-1. Le classique, très stable. Facturation à la minute."
+        },
+        "deepgram": {
+          "meta": "nova-3 · gratuit",
+          "desc": "Nova-3. Latence très faible, plan gratuit généreux."
+        },
+        "elevenlabs": {
+          "meta": "scribe-v1 · payant",
+          "desc": "Scribe-v1. Particulièrement bon avec des locuteurs variés et des accents marqués."
+        },
+        "gemini": {
+          "meta": "google · gratuit",
+          "desc": "Le modèle vocal de Google - gratuit, qualité multilingue solide."
+        },
+        "custom": {
+          "meta": "endpoint personnalisé",
+          "desc": "Ton propre endpoint compatible OpenAI - pour auto-hébergement ou serveurs privés."
+        },
+        "offline": {
+          "meta": "whisper.cpp · local",
+          "desc": "whisper.cpp directement sur ta machine - rien ne quitte ton appareil. Choisis la taille du modèle ci-dessous."
+        }
+      },
+      "models": {
+        "tiny": "Option la plus rapide, idéale pour des notes courtes.",
+        "base": "Bon équilibre au quotidien.",
+        "small": "Nettement plus précis, bon avec le vocabulaire technique.",
+        "medium": "Meilleure qualité locale, plus lent au démarrage."
+      },
+      "apiKeyPlaceholder": "Colle ta clé API",
+      "getKey": "Créer une clé",
+      "ready": "prêt",
+      "download": "télécharger",
+      "cancel": "annuler",
+      "next": "Continuer"
+    },
+    "shortcut": {
+      "eyebrow": "étape 02 · raccourci",
+      "title": "Une touche. <em>Une idée.</em>",
+      "lede": "Maintiens le raccourci pendant que tu parles. Relâche pour transcrire. Clique sur le champ pour le réassigner.",
+      "recordBtn": {
+        "idle": "appuie sur des touches…",
+        "active": "appuie sur tes touches …"
+      },
+      "tipLabel": "astuce",
+      "tipBody": "Appuyer-maintenir est plus naturel qu'un interrupteur - tu sais toujours ce qui est enregistré.",
+      "cancel": "annuler",
+      "next": "Continuer"
+    },
+    "useCase": {
+      "eyebrow": "étape 03 · domaine",
+      "title": "De quoi parles-tu <em>le plus</em> ?",
+      "lede": "Pour que les termes techniques, noms d'outils et abréviations soient bien reconnus, VOCA s'appuie sur un peu de contexte. Choisis ce qui te correspond - plusieurs vont. Modifiable à tout moment.",
+      "next": "Continuer",
+      "skip": "Passer",
+      "selectionHint": "{{count}} sélectionnés",
+      "emptyHint": "choisis ce qui colle - ou passe",
+      "category": {
+        "dev": {
+          "label": "Software & Engineering",
+          "description": "Code, frameworks, APIs, workflows Git, DevOps."
+        },
+        "pm": {
+          "label": "Produit & Projet",
+          "description": "Roadmaps, tickets, dailys, OKRs, parties prenantes."
+        },
+        "content": {
+          "label": "Contenu & Création",
+          "description": "Scripts, briefs, social, jargon des plateformes."
+        },
+        "design": {
+          "label": "Design",
+          "description": "Figma, tokens, composants, typographie, UX."
+        },
+        "business": {
+          "label": "Consulting & Business",
+          "description": "Réunions, indicateurs, propositions, clients, secteur."
+        }
+      }
+    },
+    "test": {
+      "eyebrow": "étape 04 · ton premier essai",
+      "title": "Essaie une <em>première fois</em>.",
+      "lede": "Maintiens ton raccourci et dis n'importe quelle phrase. VOCA t'accompagne pas à pas.",
+      "status": {
+        "idle": "Prêt quand tu l'es.",
+        "recording": "C'est parti. Continue à maintenir.",
+        "processing": "Je récupère ton texte …",
+        "inserting": "Insertion …"
+      },
+      "transcriptLabel": "transcription",
+      "wordsLabel": "mots",
+      "charsLabel": "caractères",
+      "continue": "Parfait, suite",
+      "skip": "Passer"
+    },
+    "pill": {
+      "bubble": "Coucou, je suis ici en bas."
+    },
+    "aiEnhancement": {
+      "eyebrow": "étape 05 · optionnel",
+      "title": "Brut ou <em>peaufiné</em> ?",
+      "lede": "Au besoin, VOCA passe ta transcription dans un modèle de langage. Il retire les tics verbaux, corrige la grammaire et lisse le style. Ta voix reste la tienne. Activable ou désactivable à tout moment.",
+      "recommended": "recommandé",
+      "providers": {
+        "groq": {
+          "meta": "llama 3.3 · gratuit",
+          "desc": "Llama 3.3 70B Versatile. Gratuit et très rapide - notre choix par défaut."
+        },
+        "anthropic": {
+          "meta": "claude haiku · payant",
+          "desc": "Claude Haiku. Nuancé, particulièrement bon pour préserver ton ton."
+        },
+        "openai": {
+          "meta": "gpt-4o · payant",
+          "desc": "GPT-4o. Très fiable, large compréhension du langage."
+        },
+        "gemini": {
+          "meta": "2.0 flash · gratuit",
+          "desc": "Gemini 2.0 Flash. Gratuit, bonne qualité, temps de réponse rapides."
+        },
+        "ollama": {
+          "meta": "local · gratuit",
+          "desc": "Tourne localement sur ta machine avec le modèle de ton choix. Pas de clé API requise."
+        }
+      },
+      "ollamaHint": "Assure-toi qu'Ollama tourne et que le modèle sélectionné est téléchargé.",
+      "reuseBtn": "Réutiliser la même clé",
+      "reuseHint": "Tu utilises déjà {{provider}} pour la transcription. La clé existante peut être reprise ici.",
+      "getKey": "Créer une clé",
+      "enable": "Activer",
+      "later": "Décider plus tard"
+    },
+    "finale": {
+      "eyebrow": "configuration terminée",
+      "title": "Tout est <em>prêt.</em>",
+      "lede": "À partir de maintenant, VOCA reste discret dans la barre de menu. La pastille en bas apparaît dès que tu enregistres. Tout le reste se trouve dans les Paramètres.",
+      "shortcutMeta": "appuyer · parler · relâcher",
+      "cta": "C'est parti"
+    },
+    "footer": {
+      "back": "retour",
+      "skip": "passer"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "nav": {
+      "general": "Général",
+      "transcription": "Transcription",
+      "ai": "Amélioration IA",
+      "snippets": "Snippets",
+      "dictionary": "Dictionnaire",
+      "fillers": "Mots-béquilles"
+    },
+    "general": {
+      "language": "Langue",
+      "uiLanguage": "Langue de l'interface",
+      "uiLanguageDescription": "Langue de l'interface VOCA. N'affecte pas la transcription.",
+      "theme": "Thème",
+      "themeDark": "Sombre",
+      "themeLight": "Clair",
+      "themeSystem": "Système",
+      "autostart": "Démarrer au login",
+      "onboarding": "Relancer l'onboarding",
+      "inputDevice": "Périphérique d'entrée",
+      "inputDeviceDefault": "Par défaut (système)"
+    },
+    "privacy": {
+      "section": "Confidentialité",
+      "historyTracking": "Conserver l'historique",
+      "historyTrackingDesc": "Les transcriptions sont stockées localement et affichées dans Historique et Stats.",
+      "targetAppTracking": "Enregistrer l'app cible",
+      "targetAppTrackingDesc": "Mémorise dans quelle app tu colles le texte — uniquement pour la stat \"App la plus fréquente\". Reste en local."
+    },
+    "transcription": {
+      "method": "Méthode",
+      "mode": {
+        "cloud": "Cloud",
+        "local": "Local"
+      },
+      "language": "Langue parlée",
+      "languageDescription": "Indication de langue pour la transcription. \"Auto\" laisse le fournisseur détecter.",
+      "languageOption": {
+        "auto": "Auto",
+        "de": "Deutsch",
+        "en": "English",
+        "es": "Español",
+        "fr": "Français",
+        "pt": "Português",
+        "it": "Italiano"
+      },
+      "muteOtherAudio": "Couper les autres apps pendant l'enregistrement",
+      "muteOtherAudioDescription": "Coupe le son des autres programmes (musique, vidéos, etc.) pendant l'enregistrement. Rien n'est mis en pause. Windows uniquement pour l'instant.",
+      "apiKey": "Clé API",
+      "localModel": "Modèle local",
+      "localModelDescription": "Tourne entièrement sur ton appareil – aucune connexion requise",
+      "download": "Télécharger",
+      "downloaded": "Installé",
+      "deleteModel": "Supprimer",
+      "cancelDownload": "Annuler",
+      "cloudProvider": "Fournisseur",
+      "cloudModel": "Modèle",
+      "cloudCustomEndpoint": "Endpoint",
+      "provider": {
+        "openai": "OpenAI Whisper",
+        "groq": "Groq Whisper",
+        "deepgram": "Deepgram",
+        "elevenlabs": "ElevenLabs",
+        "gemini": "Gemini",
+        "custom": "Personnalisé"
+      }
+    },
+    "shortcut": {
+      "recording": "Appuie sur les touches…",
+      "description": "Maintenir pour enregistrer (push-to-talk) · Double-tap pour basculer"
+    },
+    "ai": {
+      "enabled": "Activer l'amélioration IA",
+      "provider": "Fournisseur",
+      "model": "Modèle",
+      "apiKey": "Clé API",
+      "endpoint": "Endpoint",
+      "activePrompt": "Prompt actif",
+      "promptsDescription": "Clic pour activer",
+      "addPrompt": "Ajouter un prompt",
+      "promptName": "Nom",
+      "promptText": "Texte du prompt",
+      "ollamaNote": "Assure-toi qu'Ollama tourne et que le modèle sélectionné est téléchargé.",
+      "skipShort": "Ignorer les transcriptions courtes",
+      "skipShortDescription": "Les enregistrements très courts sont insérés sans amélioration IA",
+      "minWords": "Minimum",
+      "words": "mots"
+    },
+    "snippets": {
+      "title": "Snippets",
+      "add": "Ajouter un snippet",
+      "trigger": "Déclencheur",
+      "output": "Sortie",
+      "name": "Nom",
+      "enabled": "Actif"
+    },
+    "dictionary": {
+      "title": "Dictionnaire",
+      "add": "Ajouter une entrée",
+      "word": "Terme"
+    },
+    "fillers": {
+      "title": "Mots-béquilles",
+      "description": "Les mots de cette liste sont retirés de la transcription avant l'amélioration IA, si le toggle en haut à droite est actif.",
+      "wordPlaceholder": "p. ex. euh, bah, genre, du coup",
+      "add": "Ajouter",
+      "empty": "Aucun mot-béquille pour l'instant. Candidats typiques : euh, bah, genre, du coup, voilà, en fait, quoi, bon, tu vois, style."
+    }
+  },
+  "errors": {
+    "apiKeyInvalid": "Cette clé ne fonctionne pas. Vérifie qu'elle est copiée entièrement, ou crées-en une nouvelle.",
+    "apiKeyFormat": "Ça ne ressemble pas à une clé {{provider}}. Merci de vérifier.",
+    "apiKeyEmpty": "Colle une clé avant de continuer.",
+    "noInternet": "Aucune connexion. VOCA revérifiera la clé dès que tu seras de nouveau en ligne.",
+    "microphoneUnavailable": "Accès au microphone refusé. Ouvre les Réglages système et autorise VOCA à utiliser le micro.",
+    "microphoneUnavailableMac": "VOCA n'a pas l'autorisation pour ton microphone. Ouvre Réglages système, puis Confidentialité & Sécurité, et active VOCA sous \"Microphone\". L'app redémarrera automatiquement.",
+    "microphoneUnavailableWindows": "Windows bloque actuellement l'accès au microphone. Ouvre les Paramètres, puis Confidentialité & Sécurité, et autorise VOCA sous \"Microphone\".",
+    "recordingFailed": "Échec de l'enregistrement.",
+    "shortcutConflict": "Ce raccourci est déjà utilisé. Essaie-en un autre - VOCA s'entend bien avec presque tous.",
+    "aiEnhancementFailed": "L'amélioration IA a échoué - le texte original a été utilisé."
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "close": "Fermer",
+    "retry": "Réessayer"
+  }
+}
