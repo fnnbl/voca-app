@@ -62,27 +62,9 @@ export default function StatusBar() {
     return () => { unlisten.then((fn) => fn()) }
   }, [])
 
-  // Reveal ceremony: fires once per onboarding completion. Diagnostic
-  // logging included while we track down why production builds weren't
-  // showing the animation.
+  // Reveal ceremony: fires once per onboarding completion.
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[voca-pill] status bar mounted, registering pill-animate-reveal listener')
     const unlisten = listen<{ bubble?: string }>('pill-animate-reveal', (e) => {
-      // eslint-disable-next-line no-console
-      console.log('[voca-pill] pill-animate-reveal event received', e.payload)
-
-      // Diagnostic: unmistakable visible marker — if the user doesn't see
-      // this yellow tag appear in the pill window for 3 seconds, the event
-      // isn't reaching the listener at all (or the listener isn't mounted
-      // yet when the event fires).
-      const marker = document.createElement('div')
-      marker.textContent = 'EVENT OK'
-      marker.style.cssText =
-        'position:fixed;top:4px;left:4px;background:#FFD600;color:#111;padding:3px 8px;z-index:99999;font-size:10px;font-family:sans-serif;font-weight:700;border-radius:3px;pointer-events:none;'
-      document.body.appendChild(marker)
-      setTimeout(() => marker.remove(), 3000)
-
       const text = e.payload?.bubble ?? null
       if (text) {
         setBubbleText(text)
@@ -99,8 +81,6 @@ export default function StatusBar() {
       // Reset and schedule the attention wiggle.
       if (wiggleTimerRef.current) clearTimeout(wiggleTimerRef.current)
       wiggleTimerRef.current = setTimeout(() => {
-        // eslint-disable-next-line no-console
-        console.log('[voca-pill] wiggle timer fired')
         playWiggleAnimation()
       }, WIGGLE_AFTER_MS)
     })
@@ -112,65 +92,55 @@ export default function StatusBar() {
   }, [])
 
   function playRevealAnimation() {
-    // eslint-disable-next-line no-console
-    console.log('[voca-pill] playRevealAnimation fired')
     const outer = outerRef.current
     const content = contentRef.current
-    // eslint-disable-next-line no-console
-    console.log('[voca-pill] refs attached — outer:', !!outer, 'content:', !!content)
     if (!content) return
 
-    if (prefersReducedMotion()) {
-      // eslint-disable-next-line no-console
-      console.log('[voca-pill] prefers-reduced-motion is on, skipping animation')
-      return
-    }
+    const reduceMotion = prefersReducedMotion()
 
-    // --- Diagnostic flash ------------------------------------------------
-    // Regardless of what happens with the structured animation below,
-    // briefly flip the pill's outline to hot magenta for 1.5 s. If the
-    // user doesn't see this, the event isn't reaching the listener OR the
-    // ref isn't bound to the right element — both require dev-mode
-    // debugging. If they DO see it, animations work but our staging has
-    // issues.
-    content.style.outline = '3px solid magenta'
-    content.style.outlineOffset = '6px'
-    setTimeout(() => {
-      if (content) {
-        content.style.outline = ''
-        content.style.outlineOffset = ''
-      }
-    }, 1500)
-
-    // --- Simplified reveal: scale + ember glow -------------------------
-    // Earlier iterations tried outer-wrapper rotation + multi-stage
-    // transforms; something in the production webview kept discarding
-    // them. Pared down to the most basic possible transition: content
-    // snaps to a larger, ember-coloured state, then transitions back to
-    // rest. Uses getBoundingClientRect() for the reflow (more reliable
-    // than offsetHeight in some WebView2 builds).
+    // Starting pose: pill is invisible and flooded with the ember accent
+    // colour. We paint this synchronously, force a reflow, then queue the
+    // transition to rest. Without the reflow the browser coalesces the
+    // two style writes into a single paint and the user sees nothing.
     content.style.transition = 'none'
     content.style.backgroundColor = EMBER
     content.style.boxShadow = EMBER_SHADOW
 
     if (outer) {
       outer.style.transition = 'none'
-      outer.style.transformOrigin = 'center bottom'
-      outer.style.transform = 'scale(0.3)'
+      outer.style.opacity = '0'
+      if (!reduceMotion) {
+        // Only add the bouncy scale/rotate for users who want motion.
+        // The reduced-motion variant is a pure opacity + colour fade.
+        outer.style.transformOrigin = 'center bottom'
+        outer.style.transform = 'scale(0.3) rotate(-140deg)'
+      }
     }
 
+    // getBoundingClientRect is a more reliable reflow trigger than
+    // offsetHeight in some WebView2 builds.
     content.getBoundingClientRect()
 
     requestAnimationFrame(() => {
+      // Content: ember → normal dark. Same for both motion variants.
       content.style.transition =
         'background-color 700ms ease-out, box-shadow 700ms ease-out'
       content.style.backgroundColor = PILL_COLLAPSED_BG
       content.style.boxShadow = PILL_COLLAPSED_SHADOW
 
       if (outer) {
-        outer.style.transition =
-          'transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1)'
-        outer.style.transform = 'scale(1)'
+        if (reduceMotion) {
+          // Gentle fade-in, no transforms.
+          outer.style.transition = 'opacity 480ms ease-out'
+          outer.style.opacity = '1'
+        } else {
+          // Full swoop: scale and un-rotate into place with a spring
+          // overshoot, while opacity eases in quickly.
+          outer.style.transition =
+            'transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 280ms ease-out'
+          outer.style.transform = 'scale(1) rotate(0)'
+          outer.style.opacity = '1'
+        }
       }
     })
 
@@ -181,6 +151,7 @@ export default function StatusBar() {
       if (outer) {
         outer.style.transition = ''
         outer.style.transform = ''
+        outer.style.opacity = ''
         outer.style.transformOrigin = ''
       }
     }, 820)
