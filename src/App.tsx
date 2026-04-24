@@ -33,7 +33,9 @@ export default function App() {
   // and only when the stored language is still the unchanged 'de' default
   // and onboarding hasn't completed yet. A user who deliberately sets their
   // UI to DE after having finished onboarding (or to any non-DE language)
-  // is never overridden.
+  // is never overridden. The default AI prompt follows the UI language
+  // automatically through a backend resolver, so no prompt-id update is
+  // needed here.
   const autoDetectedRef = useRef(false)
   useEffect(() => {
     if (!settings || autoDetectedRef.current) return
@@ -45,7 +47,6 @@ export default function App() {
     save({
       ...settings,
       general: { ...settings.general, language: detected },
-      aiEnhancement: { ...settings.aiEnhancement, activePromptId: `default-${detected}` },
     })
   }, [settings, save])
 
