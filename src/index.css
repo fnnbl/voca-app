@@ -15,9 +15,15 @@
   --v-ink:         #1A1A1A;
   --v-ink-2:       #3D3D3D;
   --v-ink-3:       #5E5E5E;
-  --v-ink-4:       #C4C0B5;
-  --v-line:        #CFCBBE;
-  --v-line-soft:   #DFDBCE;
+  /* ink-4, line, line-soft were too close to --v-bg in the original
+     warm-neutral palette: muted body text and borders fell well below
+     WCAG readability thresholds (~1.1-1.4:1). Bumped to warm-grey shades
+     that match the beige base but are actually visible. Dark-mode
+     equivalents are left untouched - they already sit in a usable
+     range against the dark background. */
+  --v-ink-4:       #9A9587;
+  --v-line:        #BDB7A6;
+  --v-line-soft:   #D2CDBC;
   --v-ember:       #C65441;
   --v-accent:      #1A1A1A;
   --v-accent-soft: rgba(26,26,26,0.08);
