@@ -9,11 +9,12 @@ import { DictionarySettings } from './settings/DictionarySettings'
 import { FillersSettings } from './settings/FillersSettings'
 import { HistoryPage } from './HistoryPage'
 import { StatsPage } from './StatsPage'
+import { AboutPage } from './AboutPage'
 import { DEFAULT_SHORTCUT } from '../types'
 import type { Settings } from '../types'
 import { formatShortcut } from '../shortcut/format'
 
-type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general'
+type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general' | 'about'
 
 interface Props {
   settings: Settings
@@ -72,6 +73,9 @@ export function SettingsPage({ settings, onSave }: Props) {
           <NavItem id="general" active={active} onClick={setActive} icon={<SettingsIcon />}>
             {t('settings.nav.general')}
           </NavItem>
+          <NavItem id="about" active={active} onClick={setActive} icon={<InfoIcon />} variant="bottom">
+            {t('settings.nav.about', 'About')}
+          </NavItem>
         </nav>
 
         <div className="shell-foot">
@@ -96,6 +100,7 @@ export function SettingsPage({ settings, onSave }: Props) {
           {active === 'dictionary'    && <DictionarySettings />}
           {active === 'fillers'       && <FillersSettings settings={settings} onChange={handleChange} />}
           {active === 'general'       && <GeneralSettings settings={settings} onChange={handleChange} />}
+          {active === 'about'         && <AboutPage />}
         </div>
       </main>
     </div>
@@ -103,7 +108,7 @@ export function SettingsPage({ settings, onSave }: Props) {
 }
 
 function NavItem({
-  id, active, onClick, icon, kbd, children,
+  id, active, onClick, icon, kbd, children, variant,
 }: {
   id: NavId
   active: NavId
@@ -111,10 +116,12 @@ function NavItem({
   icon: ReactNode
   kbd?: string
   children: ReactNode
+  variant?: 'bottom'
 }) {
+  const variantClass = variant === 'bottom' ? ' is-bottom' : ''
   return (
     <button
-      className={`shell-nav-item${active === id ? ' is-active' : ''}`}
+      className={`shell-nav-item${active === id ? ' is-active' : ''}${variantClass}`}
       onClick={() => onClick(id)}
     >
       {icon}
@@ -158,4 +165,7 @@ function EraserIcon() {
 }
 function SettingsIcon() {
   return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><circle cx="8" cy="8" r="1.5"/><path d="M8 2v1.5M8 12.5V14M13 8h-1.5M4.5 8H3M11.5 4.5l-1 1M5.5 10.5l-1 1M11.5 11.5l-1-1M5.5 5.5l-1-1"/></svg>
+}
+function InfoIcon() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v3.5M8 5v0.25"/></svg>
 }

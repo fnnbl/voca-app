@@ -182,7 +182,12 @@
       "ai": "KI-Nachbearbeitung",
       "snippets": "Snippets",
       "dictionary": "Wörterbuch",
-      "fillers": "Füllwörter"
+      "fillers": "Füllwörter",
+      "about": "Über"
+    },
+    "about": {
+      "bmc": "Buy me a coffee",
+      "credits": "Gebaut mit Tauri, React und whisper.cpp."
     },
     "general": {
       "language": "Sprache",

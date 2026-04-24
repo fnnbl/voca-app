@@ -182,7 +182,12 @@
       "ai": "Amélioration IA",
       "snippets": "Snippets",
       "dictionary": "Dictionnaire",
-      "fillers": "Mots-béquilles"
+      "fillers": "Mots-béquilles",
+      "about": "À propos"
+    },
+    "about": {
+      "bmc": "Buy me a coffee",
+      "credits": "Construit avec Tauri, React et whisper.cpp."
     },
     "general": {
       "language": "Langue",

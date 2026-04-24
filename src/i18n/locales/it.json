@@ -182,7 +182,12 @@
       "ai": "Miglioramento IA",
       "snippets": "Snippet",
       "dictionary": "Dizionario",
-      "fillers": "Intercalari"
+      "fillers": "Intercalari",
+      "about": "Info"
+    },
+    "about": {
+      "bmc": "Buy me a coffee",
+      "credits": "Realizzato con Tauri, React e whisper.cpp."
     },
     "general": {
       "language": "Lingua",
