@@ -2,11 +2,21 @@ import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open } from '@tauri-apps/plugin-shell'
 import { useShortcutCapture, sortShortcut } from '../hooks/useShortcutCapture'
-import { DEFAULT_SHORTCUT } from '../types'
-import type { Settings } from '../types'
+import { DEFAULT_SHORTCUT, SUPPORTED_UI_LANGUAGES } from '../types'
+import type { Settings, UiLanguage } from '../types'
 import { formatShortcutKey } from '../shortcut/format'
+
+const LANGUAGE_LABELS: Record<UiLanguage, string> = {
+  de: 'Deutsch',
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  pt: 'Português',
+  it: 'Italiano',
+}
 
 interface Props {
   settings: Settings
@@ -73,6 +83,17 @@ export function OnboardingPage({ settings, onComplete }: Props) {
     await onComplete({ ...updated, general: { ...updated.general, onboardingCompleted: true } })
   }
 
+  // Persist a language change immediately without completing onboarding.
+  // Piggybacks on the same onComplete (= save) pipe but keeps
+  // onboardingCompleted unchanged so the flow doesn't collapse mid-step,
+  // and the appStore update causes App.tsx to call i18n.changeLanguage
+  // so the rest of the onboarding re-renders in the new language.
+  async function persistLanguage(lang: UiLanguage) {
+    const updated: Settings = { ...local, general: { ...local.general, language: lang } }
+    setLocal(updated)
+    await onComplete(updated)
+  }
+
   function next() { setStep(STEPS[Math.min(stepIndex + 1, STEPS.length - 1)] as Step) }
   function back() { setStep(STEPS[Math.max(stepIndex - 1, 0)] as Step) }
 
@@ -96,7 +117,7 @@ export function OnboardingPage({ settings, onComplete }: Props) {
         </div>
       )}
 
-      {step === 'welcome'      && <StepWelcome onNext={next} />}
+      {step === 'welcome'      && <StepWelcome settings={local} onLanguageChange={persistLanguage} onNext={next} />}
       {step === 'transcription' && <StepTranscription settings={local} onChange={setLocal} onNext={next} />}
       {step === 'shortcut'     && <StepShortcut settings={local} onChange={setLocal} onNext={next} />}
       {step === 'useCase'      && <StepUseCase onNext={next} />}
@@ -116,10 +137,27 @@ export function OnboardingPage({ settings, onComplete }: Props) {
 
 /* ── Welcome ─────────────────────────────────────────────────────────────── */
 
-function StepWelcome({ onNext }: { onNext: () => void }) {
+function StepWelcome({
+  settings, onLanguageChange, onNext,
+}: {
+  settings: Settings
+  onLanguageChange: (lang: UiLanguage) => void | Promise<void>
+  onNext: () => void
+}) {
   const { t } = useTranslation()
   return (
     <div className="onb-stage" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <div className="onb-lang-picker">
+        <select
+          aria-label={t('onboarding.welcome.languageLabel', 'Sprache')}
+          value={settings.general.language}
+          onChange={(e) => onLanguageChange(e.target.value as UiLanguage)}
+        >
+          {SUPPORTED_UI_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
+          ))}
+        </select>
+      </div>
       <div className="ember-mark" />
       <div style={{ marginBottom: 36 }}>
         <WelcomeLogoMark size={132} />
@@ -128,7 +166,7 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
       <h1 className="onb-title" style={{ fontSize: 88, marginBottom: 24 }}>
         <span className="v-wordmark" style={{ fontSize: 'inherit' }}>VOCA</span>
       </h1>
-      <p className="onb-lede" style={{ fontSize: 17, maxWidth: '44ch' }}>
+      <p className="onb-lede" style={{ fontSize: 17, maxWidth: '60ch' }}>
         {t('onboarding.welcome.lede', 'Sprich - und dein Text erscheint dort, wo du tippst.')}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -506,6 +544,15 @@ function StepTest({ onNext }: { onNext: () => void }) {
   useEffect(() => {
     (async () => {
       try {
+        // Bring the onboarding window to focus so the DOM shortcut fallback
+        // (`useShortcutFallback`) receives the key events for the first
+        // recording attempt. Without this, users whose last click landed
+        // outside VOCA — e.g. on the native OS language picker they just
+        // opened — have to click the onboarding window once before the
+        // shortcut responds. Global rdev capture works regardless, but on
+        // Windows/macOS that needs accessibility permissions which a
+        // fresh install hasn't granted yet.
+        getCurrentWindow().setFocus().catch(() => {})
         await invoke('unlock_recording')
         await invoke('show_pill')
         // Give the OS compositor a beat to actually paint the now-visible

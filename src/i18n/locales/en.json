@@ -14,7 +14,8 @@
       "eyebrow": "welcome to",
       "lede": "Speak - and your text appears exactly where you'd type it.",
       "cta": "Get started",
-      "meta": "takes less than 90 seconds"
+      "meta": "takes less than 90 seconds",
+      "languageLabel": "Language"
     },
     "transcription": {
       "eyebrow": "step 01 · transcription",
