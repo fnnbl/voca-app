@@ -224,7 +224,17 @@ mod tests {
     }
 
     fn now_ms() -> i64 {
-        Local::now().timestamp_millis()
+        // Fixed anchor at 12:00 UTC on 2026-04-23 (a Thursday). Using
+        // Local::now() made every time-bucket test flaky on CI: whenever
+        // the runner fired within the first hour after midnight UTC, an
+        // entry stamped "1 h ago" landed on yesterday's calendar date and
+        // the `words_today` / `activity_30d[29]` assertions flipped to
+        // zero. A fixed mid-day UTC anchor keeps the ±hour offsets we
+        // use in these tests inside the same local date regardless of
+        // when the runner fires or which timezone it inherits.
+        chrono::DateTime::parse_from_rfc3339("2026-04-23T12:00:00Z")
+            .expect("valid rfc3339 anchor")
+            .timestamp_millis()
     }
 
     fn day_ms() -> u64 {

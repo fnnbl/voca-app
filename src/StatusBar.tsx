@@ -52,6 +52,15 @@ export default function StatusBar() {
 
   useEffect(() => {
     getCurrentWebviewWindow().setIgnoreCursorEvents(true).catch(() => {})
+    // The pill webview shares index.html + base CSS with the main window,
+    // where scroll is the normal affordance. Here it isn't: the reveal
+    // animation's ember glow box-shadow (42 × 18 px) and scale/translate
+    // transforms push content past the 380 × 72 window briefly, which
+    // WebView2 answers with scrollbars on the right and bottom edges.
+    // Lock overflow on this webview only — the main window is unaffected
+    // because StatusBar is the single component that routes here.
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
   }, [])
 
   useEffect(() => {
