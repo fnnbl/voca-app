@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open } from '@tauri-apps/plugin-shell'
 import { useShortcutCapture, sortShortcut } from '../hooks/useShortcutCapture'
 import { DEFAULT_SHORTCUT, SUPPORTED_UI_LANGUAGES } from '../types'
@@ -543,6 +544,15 @@ function StepTest({ onNext }: { onNext: () => void }) {
   useEffect(() => {
     (async () => {
       try {
+        // Bring the onboarding window to focus so the DOM shortcut fallback
+        // (`useShortcutFallback`) receives the key events for the first
+        // recording attempt. Without this, users whose last click landed
+        // outside VOCA — e.g. on the native OS language picker they just
+        // opened — have to click the onboarding window once before the
+        // shortcut responds. Global rdev capture works regardless, but on
+        // Windows/macOS that needs accessibility permissions which a
+        // fresh install hasn't granted yet.
+        getCurrentWindow().setFocus().catch(() => {})
         await invoke('unlock_recording')
         await invoke('show_pill')
         // Give the OS compositor a beat to actually paint the now-visible
