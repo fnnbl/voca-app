@@ -247,7 +247,78 @@ input[type="password"]::-ms-reveal { display: none; }
 /* ============================================================
    Status Pill
    ============================================================ */
-.pill-outer { width: 100%; height: 100%; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 16px; background: transparent; }
+.pill-outer {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding-bottom: 16px; background: transparent;
+  transform-origin: center bottom;
+}
+
+/* The first-meeting pop is driven via inline style transitions from
+   `StatusBar.tsx`. CSS keyframes and WAAPI both proved unreliable during
+   the first ~200 ms after the hidden pill webview became visible — the
+   compositor silently swallowed frames. Inline transitions with a forced
+   reflow between start and target states get around that.
+
+   The attention wiggle fires 7 s later, long after the webview is stable,
+   so a CSS keyframe + class toggle is safe here. */
+.pill-outer.is-wiggling {
+  animation: pillWiggle 900ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 1 both;
+}
+@keyframes pillWiggle {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  10%      { transform: rotate(-10deg) translateY(-4px); }
+  25%      { transform: rotate(9deg)   translateY(-6px); }
+  40%      { transform: rotate(-7deg)  translateY(-3px); }
+  55%      { transform: rotate(6deg)   translateY(-4px); }
+  70%      { transform: rotate(-4deg)  translateY(-1px); }
+  85%      { transform: rotate(2deg)   translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-outer.is-wiggling {
+    animation: none;
+  }
+}
+
+/* Speech bubble tethered above the pill. Appears with a short upward ease,
+   stays visible until the user starts recording or BUBBLE_MS elapses. */
+.pill-bubble {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 9px 14px;
+  background: rgba(20,19,17,0.92);
+  color: #EBE8E0;
+  font-family: var(--f-ui);
+  font-size: 12.5px;
+  line-height: 1.4;
+  border-radius: 12px;
+  max-width: 280px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22), 0 10px 28px rgba(0,0,0,0.3);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  pointer-events: none;
+  animation: bubbleIn 320ms var(--ease) both;
+}
+.pill-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -5px; left: 50%;
+  width: 10px; height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+@keyframes bubbleIn {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-bubble {
+    animation: none;
+  }
+}
 
 /* Collapsed idle state — minimal line like a sleeping indicator */
 .pill-collapsed {

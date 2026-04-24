@@ -3,8 +3,8 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
     audio::{AudioBuffer, AudioRecordingState},
-    AppState, AppStateManager, AudioDuckingState, RecordingStateChangedPayload,
-    SelectedAudioDevice,
+    AppState, AppStateManager, AudioDuckingState, RecordingGate,
+    RecordingStateChangedPayload, SelectedAudioDevice,
 };
 
 pub const DEFAULT_SHORTCUT: &str = "Ctrl+Super";
@@ -20,6 +20,15 @@ const ON_PRESS_DEDUP: Duration = Duration::from_millis(50);
 
 /// Called by hotkey::start when the shortcut keys are all pressed.
 pub fn on_press(app: &AppHandle) {
+    // Gate during early onboarding: before the user has reached the Test
+    // step (or completed onboarding otherwise), pressing the shortcut must
+    // be a no-op. The listener stays alive in the background so we don't
+    // have to re-register anything when the gate opens.
+    if !*app.state::<RecordingGate>().0.lock().unwrap() {
+        eprintln!("[VOCA shortcut] on_press ignored (recording gate locked)");
+        return;
+    }
+
     // Dedup against double-firing from rdev + frontend fallback.
     {
         let press_state = app.state::<crate::LastPressTime>();

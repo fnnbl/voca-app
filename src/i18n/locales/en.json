@@ -31,6 +31,9 @@
       "description": "Hold to record, release to stop. Double-tap quickly to toggle recording on/off.",
       "next": "Continue"
     },
+    "pill": {
+      "bubble": "Hey, I'm here!"
+    },
     "useCase": {
       "title": "What do you work on?",
       "description": "VOCA learns the typical vocabulary from your field so Whisper transcribes it correctly from the start. Multiple selections are fine. You can adjust this any time later.",

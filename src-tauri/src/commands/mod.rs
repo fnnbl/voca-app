@@ -82,7 +82,47 @@ pub fn save_settings(
     app: tauri::AppHandle,
     settings: serde_json::Value,
 ) -> Result<(), String> {
-    storage::save(&app, &settings)
+    // Intercept the onboardingCompleted transition from false → true. This
+    // covers every completion path (Done step, skip button, closing the
+    // window mid-flow) in one spot so frontend callers don't have to
+    // remember to unlock the gate and show the pill themselves.
+    let prev = storage::load(&app).ok();
+    let was_done = prev
+        .as_ref()
+        .and_then(|s| s["general"]["onboardingCompleted"].as_bool())
+        .unwrap_or(false);
+    let is_done = settings["general"]["onboardingCompleted"]
+        .as_bool()
+        .unwrap_or(false);
+
+    storage::save(&app, &settings)?;
+
+    if !was_done && is_done {
+        // Completion just happened — unlock recording and reveal pill if it
+        // was hidden. We don't animate here; this path is for users who
+        // skipped past the Test step. The animated reveal only fires via
+        // the `pill-animate-reveal` event from the Test step mount.
+        *app.state::<crate::RecordingGate>().0.lock().unwrap() = true;
+        if let Some(pill) = app.get_webview_window("status-bar") {
+            let _ = pill.show();
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn unlock_recording(app: tauri::AppHandle) -> Result<(), String> {
+    *app.state::<crate::RecordingGate>().0.lock().unwrap() = true;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn show_pill(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(pill) = app.get_webview_window("status-bar") {
+        pill.show().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

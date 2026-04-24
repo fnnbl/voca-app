@@ -42,6 +42,13 @@ pub struct LastTapTime(pub Mutex<Option<std::time::Instant>>);
 pub struct IsToggleSession(pub Mutex<bool>);
 pub struct SelectedAudioDevice(pub Mutex<Option<String>>);
 pub struct AudioDuckingState(pub Mutex<Option<audio_ducking::DuckingGuard>>);
+
+/// Blocks recording + pill visibility during early onboarding steps.
+/// `false` = gated (ignore shortcut presses, pill window hidden);
+/// `true` = normal operation. Set at startup from `general.onboardingCompleted`,
+/// flipped to `true` by the frontend when the onboarding Test step mounts
+/// (or when onboarding completes by any path).
+pub struct RecordingGate(pub Mutex<bool>);
 pub struct DownloadCancelFlag(pub Arc<Mutex<bool>>);
 pub struct HotkeyStateWrapper(pub std::sync::Arc<hotkey::HotkeyState>);
 
@@ -89,6 +96,7 @@ pub fn run() {
         .manage(IsToggleSession(Mutex::new(false)))
         .manage(SelectedAudioDevice(Mutex::new(None)))
         .manage(AudioDuckingState(Mutex::new(None)))
+        .manage(RecordingGate(Mutex::new(true))) // default; setup() reconciles from settings
         .manage(DownloadCancelFlag(Arc::new(Mutex::new(false))))
         .manage(HotkeyStateWrapper(Arc::new(hotkey::HotkeyState::new())))
         .setup(|app| {
@@ -114,6 +122,20 @@ pub fn run() {
                 hotkey::start(hotkey_state, handle.clone());
             }
 
+            // Reconcile the RecordingGate + pill visibility against persisted
+            // onboarding state. On first-run installs (onboardingCompleted =
+            // false) we gate everything until the user reaches the Test step;
+            // on every subsequent launch the pill is normal from the first
+            // frame.
+            let onboarding_done = {
+                let handle = app.handle();
+                let settings = crate::storage::load(handle).unwrap_or_default();
+                settings["general"]["onboardingCompleted"]
+                    .as_bool()
+                    .unwrap_or(false)
+            };
+            *app.state::<RecordingGate>().0.lock().unwrap() = onboarding_done;
+
             if let Some(status_bar) = app.get_webview_window("status-bar") {
                 // Prefer primary_monitor for reliable startup positioning;
                 // the monitor's .position() offset is added so multi-monitor
@@ -125,6 +147,9 @@ pub fn run() {
                     .or_else(|| status_bar.current_monitor().ok().flatten());
                 if let Some(m) = monitor {
                     position_status_bar(&status_bar, &m);
+                }
+                if !onboarding_done {
+                    let _ = status_bar.hide();
                 }
             }
 
@@ -194,6 +219,8 @@ pub fn run() {
             commands::set_window_theme,
             commands::list_audio_devices,
             commands::set_audio_device,
+            commands::unlock_recording,
+            commands::show_pill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
