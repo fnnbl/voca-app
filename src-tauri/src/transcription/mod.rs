@@ -556,12 +556,8 @@ async fn maybe_enhance(
         _ => return text,
     };
 
-    let prompt_text = match crate::storage::load_prompts(app) {
-        Ok(prompts) => prompts
-            .into_iter()
-            .find(|p| p.id == active_prompt_id)
-            .map(|p| p.prompt)
-            .unwrap_or_default(),
+    let prompt_text = match crate::storage::resolve_active_prompt_text(app, &active_prompt_id) {
+        Ok(t) => t,
         Err(_) => return text,
     };
 

@@ -49,7 +49,7 @@ export interface Settings {
     key: string
   }
   general: {
-    language: 'de' | 'en'
+    language: UiLanguage
     autostart: boolean
     onboardingCompleted: boolean
     theme: 'light' | 'dark' | 'system'
@@ -60,6 +60,10 @@ export interface Settings {
     targetAppTracking: boolean
   }
 }
+
+export type UiLanguage = 'de' | 'en' | 'es' | 'fr' | 'pt' | 'it'
+
+export const SUPPORTED_UI_LANGUAGES: UiLanguage[] = ['de', 'en', 'es', 'fr', 'pt', 'it']
 
 export type TranscriptionLanguage = 'auto' | 'de' | 'en' | 'es' | 'fr' | 'pt' | 'it'
 

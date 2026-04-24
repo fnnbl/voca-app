@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +11,7 @@ import { useShortcutFallback } from './hooks/useShortcutFallback'
 import { DEFAULT_SHORTCUT } from './types'
 import { SettingsPage } from './pages/SettingsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { detectOsLocale } from './i18n/detectOsLocale'
 import type { Settings } from './types'
 
 export default function App() {
@@ -27,6 +28,27 @@ export default function App() {
     const lang = settings?.general?.language ?? 'de'
     i18n.changeLanguage(lang)
   }, [settings, i18n])
+
+  // First-run UI language auto-detection. Fires at most once per app launch
+  // and only when the stored language is still the unchanged 'de' default
+  // and onboarding hasn't completed yet. A user who deliberately sets their
+  // UI to DE after having finished onboarding (or to any non-DE language)
+  // is never overridden. The default AI prompt follows the UI language
+  // automatically through a backend resolver, so no prompt-id update is
+  // needed here.
+  const autoDetectedRef = useRef(false)
+  useEffect(() => {
+    if (!settings || autoDetectedRef.current) return
+    autoDetectedRef.current = true
+    if (settings.general.onboardingCompleted) return
+    if (settings.general.language !== 'de') return
+    const detected = detectOsLocale()
+    if (detected === 'de') return
+    save({
+      ...settings,
+      general: { ...settings.general, language: detected },
+    })
+  }, [settings, save])
 
   useEffect(() => {
     const theme = settings?.general?.theme ?? 'system'

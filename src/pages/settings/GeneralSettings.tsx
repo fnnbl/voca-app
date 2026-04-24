@@ -3,8 +3,17 @@ import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { SettingRow } from '../../components/settings/SettingRow'
 import { ShortcutRecorder } from '../../components/settings/ShortcutRecorder'
-import { DEFAULT_SHORTCUT } from '../../types'
-import type { Settings } from '../../types'
+import { DEFAULT_SHORTCUT, SUPPORTED_UI_LANGUAGES } from '../../types'
+import type { Settings, UiLanguage } from '../../types'
+
+const LANGUAGE_LABELS: Record<UiLanguage, string> = {
+  de: 'Deutsch',
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  pt: 'Português',
+  it: 'Italiano',
+}
 
 interface Props {
   settings: Settings
@@ -48,7 +57,7 @@ export function GeneralSettings({ settings, onChange }: Props) {
     onChange({ ...settings, general: { ...settings.general, audioInputDevice: value } })
   }
 
-  function setLanguage(lang: 'de' | 'en') {
+  function setLanguage(lang: UiLanguage) {
     onChange({ ...settings, general: { ...settings.general, language: lang } })
   }
 
@@ -83,17 +92,15 @@ export function GeneralSettings({ settings, onChange }: Props) {
         label={t('settings.general.uiLanguage')}
         description={t('settings.general.uiLanguageDescription')}
       >
-        <div className="v-seg">
-          {(['de', 'en'] as const).map((lang) => (
-            <button
-              key={lang}
-              onClick={() => setLanguage(lang)}
-              className={settings.general.language === lang ? 'is-active' : ''}
-            >
-              {lang === 'de' ? 'Deutsch' : 'English'}
-            </button>
+        <select
+          value={settings.general.language}
+          onChange={(e) => setLanguage(e.target.value as UiLanguage)}
+          className="w-56 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg text-text focus:outline-none focus:border-accent"
+        >
+          {SUPPORTED_UI_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
           ))}
-        </div>
+        </select>
       </SettingRow>
 
       <SettingRow label={t('settings.general.theme')} description="">
