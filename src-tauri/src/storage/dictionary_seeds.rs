@@ -44,7 +44,7 @@ const DESIGN_TERMS: &[&str] = &[
     "Brand Identity", "Icon", "Illustration", "Viewport", "Breakpoint",
 ];
 
-const CONSULTING_TERMS: &[&str] = &[
+const BUSINESS_TERMS: &[&str] = &[
     "Stakeholder", "Deliverable", "Workshop", "Discovery", "Proposal",
     "Pitch", "Engagement", "Client", "Retainer", "Billable", "Milestone",
     "Scope", "Out-of-Scope", "Assumption", "Risk", "Mitigation",
@@ -66,7 +66,7 @@ pub fn seeds_for(categories: &[&str]) -> Vec<String> {
             "pm" => PM_TERMS,
             "content" => CONTENT_TERMS,
             "design" => DESIGN_TERMS,
-            "consulting" => CONSULTING_TERMS,
+            "business" => BUSINESS_TERMS,
             _ => continue,
         };
         for term in terms {
@@ -112,10 +112,10 @@ mod tests {
     #[test]
     fn multiple_categories_dedup_on_case_insensitive_key() {
         // "Milestone", "Stakeholder", "Deliverable", "Scope", "Kick-off"
-        // appear in both PM and Consulting lists. Merged list must be
+        // appear in both PM and Business lists. Merged list must be
         // shorter than the naive concatenation.
-        let merged = seeds_for(&["pm", "consulting"]);
-        let naive = PM_TERMS.len() + CONSULTING_TERMS.len();
+        let merged = seeds_for(&["pm", "business"]);
+        let naive = PM_TERMS.len() + BUSINESS_TERMS.len();
         assert!(
             merged.len() < naive,
             "expected dedup but got merged={} naive={}",
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn all_five_categories_produce_nonempty_output() {
-        let result = seeds_for(&["dev", "pm", "content", "design", "consulting"]);
+        let result = seeds_for(&["dev", "pm", "content", "design", "business"]);
         assert!(result.len() > 100, "expected a substantial merged list, got {}", result.len());
     }
 
