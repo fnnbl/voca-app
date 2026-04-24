@@ -51,7 +51,6 @@ export default function StatusBar() {
   const contentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    getCurrentWebviewWindow().setIgnoreCursorEvents(true).catch(() => {})
     // The pill webview shares index.html + base CSS with the main window,
     // where scroll is the normal affordance. Here it isn't: the reveal
     // animation's ember glow box-shadow (42 × 18 px) and scale/translate
@@ -62,6 +61,15 @@ export default function StatusBar() {
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
   }, [])
+
+  // Re-assert click-through on every app-state change. Windows drops the
+  // ignore-cursor flag across hide/show cycles and sometimes on webview
+  // focus changes; Rust sets it at window setup and after each show(),
+  // but repeating it on every render-visible state gives us a third safety
+  // net if either of those missed. The call is idempotent and cheap.
+  useEffect(() => {
+    getCurrentWebviewWindow().setIgnoreCursorEvents(true).catch(() => {})
+  }, [appState])
 
   useEffect(() => {
     invoke<AppState>('get_app_state').then(setAppState).catch(() => {})

@@ -148,6 +148,13 @@ pub fn run() {
                 if let Some(m) = monitor {
                     position_status_bar(&status_bar, &m);
                 }
+                // Click-through so the pill never blocks apps underneath.
+                // The frontend also calls this on mount, but that Ignore
+                // state is not persistent on Windows — it gets dropped on
+                // every hide/show cycle. Setting it here at window-setup
+                // time closes the race where the pill is already visible
+                // before the webview JS has finished mounting.
+                let _ = status_bar.set_ignore_cursor_events(true);
                 if !onboarding_done {
                     let _ = status_bar.hide();
                 }
