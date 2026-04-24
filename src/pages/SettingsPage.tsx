@@ -73,7 +73,7 @@ export function SettingsPage({ settings, onSave }: Props) {
           <NavItem id="general" active={active} onClick={setActive} icon={<SettingsIcon />}>
             {t('settings.nav.general')}
           </NavItem>
-          <NavItem id="about" active={active} onClick={setActive} icon={<InfoIcon />}>
+          <NavItem id="about" active={active} onClick={setActive} icon={<InfoIcon />} variant="bottom">
             {t('settings.nav.about', 'About')}
           </NavItem>
         </nav>
@@ -108,7 +108,7 @@ export function SettingsPage({ settings, onSave }: Props) {
 }
 
 function NavItem({
-  id, active, onClick, icon, kbd, children,
+  id, active, onClick, icon, kbd, children, variant,
 }: {
   id: NavId
   active: NavId
@@ -116,10 +116,12 @@ function NavItem({
   icon: ReactNode
   kbd?: string
   children: ReactNode
+  variant?: 'bottom'
 }) {
+  const variantClass = variant === 'bottom' ? ' is-bottom' : ''
   return (
     <button
-      className={`shell-nav-item${active === id ? ' is-active' : ''}`}
+      className={`shell-nav-item${active === id ? ' is-active' : ''}${variantClass}`}
       onClick={() => onClick(id)}
     >
       {icon}
