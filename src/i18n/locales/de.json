@@ -11,72 +11,167 @@
   },
   "onboarding": {
     "welcome": {
-      "title": "Willkommen bei VOCA",
-      "description": "Drücke deinen Shortcut, sprich – Text erscheint direkt im aktiven Fenster.",
-      "next": "Los geht's"
+      "eyebrow": "willkommen bei",
+      "lede": "Sprich - und dein Text erscheint dort, wo du tippst.",
+      "cta": "Einrichten",
+      "meta": "dauert keine 90 sekunden"
     },
     "transcription": {
-      "title": "Transkription einrichten",
-      "cloud": "Cloud (OpenAI Whisper API)",
-      "cloudDescription": "Hohe Qualität, erfordert API Key",
-      "local": "Lokal (whisper.cpp)",
-      "localDescription": "Offline, kostenlos, etwas mehr Setup",
-      "offlineMode": "Stattdessen offline nutzen",
-      "offlineNote": "Läuft auf dem Gerät. Langsamer und weniger genau als Cloud-Dienste.",
-      "apiKeyPlaceholder": "sk-...",
+      "eyebrow": "schritt 01 · transkription",
+      "title": "Cloud oder <em>lokal</em>?",
+      "lede": "VOCA arbeitet mit schnellen Cloud-Diensten oder lokal auf deinem Rechner - vollständig offline. Die Entscheidung lässt sich jederzeit ändern.",
+      "recommended": "empfohlen",
+      "providers": {
+        "groq": {
+          "meta": "whisper turbo · kostenlos",
+          "desc": "Whisper large-v3-turbo. Die schnellste Variante - für den Alltag genügt das kostenlose Kontingent."
+        },
+        "openai": {
+          "meta": "whisper-1 · kostenpflichtig",
+          "desc": "Whisper-1. Der Klassiker, sehr stabil. Abrechnung nach Minuten."
+        },
+        "deepgram": {
+          "meta": "nova-3 · kostenlos",
+          "desc": "Nova-3. Sehr niedrige Latenz, großzügiges kostenloses Kontingent."
+        },
+        "elevenlabs": {
+          "meta": "scribe-v1 · kostenpflichtig",
+          "desc": "Scribe-v1. Besonders gut bei wechselnden Sprecherinnen und akzentuierter Sprache."
+        },
+        "gemini": {
+          "meta": "google · kostenlos",
+          "desc": "Googles Sprachmodell - kostenlos, gute mehrsprachige Qualität."
+        },
+        "custom": {
+          "meta": "eigener endpoint",
+          "desc": "Eigener OpenAI-kompatibler Endpoint - für Self-hosting oder private Server."
+        },
+        "offline": {
+          "meta": "whisper.cpp · lokal",
+          "desc": "whisper.cpp direkt auf deinem Rechner - nichts verlässt dein Gerät. Modellgröße wählst du unten aus."
+        }
+      },
+      "models": {
+        "tiny": "Schnellste Option, gut für kurze Notizen.",
+        "base": "Solider Alltag, guter Mittelweg.",
+        "small": "Spürbar präziser, gut bei Fachsprache.",
+        "medium": "Höchste lokale Qualität, langsamer beim Start."
+      },
+      "apiKeyPlaceholder": "API-Schlüssel einfügen",
+      "getKey": "Schlüssel erstellen",
+      "ready": "bereit",
+      "download": "laden",
+      "cancel": "abbrechen",
       "next": "Weiter"
     },
     "shortcut": {
-      "title": "Shortcut festlegen",
-      "description": "Einmal drücken zum Starten, nochmal drücken zum Stoppen.",
+      "eyebrow": "schritt 02 · tastenkürzel",
+      "title": "Eine Taste. <em>Ein Gedanke.</em>",
+      "lede": "Halte die Tastenkombination gedrückt, solange du sprichst. Sobald du loslässt, wird transkribiert. Zum Neubelegen einfach auf das Feld klicken.",
+      "recordBtn": {
+        "idle": "tasten drücken…",
+        "active": "drücke deine tasten …"
+      },
+      "tipLabel": "tipp",
+      "tipBody": "Gedrückt halten fühlt sich natürlicher an als ein An-Aus-Schalter - du hast jederzeit Kontrolle darüber, was aufgenommen wird.",
+      "cancel": "abbrechen",
       "next": "Weiter"
     },
-    "pill": {
-      "bubble": "Hey, hier bin ich!"
-    },
     "useCase": {
-      "title": "Womit arbeitest du?",
-      "description": "VOCA merkt sich typische Begriffe aus deinem Fachbereich, damit Whisper sie gleich richtig versteht. Mehrfachauswahl ist OK. Kannst du später jederzeit anpassen.",
-      "skip": "Überspringen",
+      "eyebrow": "schritt 03 · fachbereich",
+      "title": "Worüber sprichst du am <em>meisten</em>?",
+      "lede": "Damit Fachbegriffe, Tool-Namen und Abkürzungen sauber erkannt werden, hilft VOCA ein wenig Kontext. Wähl einfach, was auf dich zutrifft - mehrere gehen. Jederzeit änderbar.",
       "next": "Weiter",
+      "skip": "Überspringen",
       "selectionHint": "{{count}} ausgewählt",
+      "emptyHint": "wähle, was passt - oder überspringe",
       "category": {
         "dev": {
-          "label": "Software Developer",
-          "description": "Coding, APIs, Pull Requests, Frameworks"
+          "label": "Software & Engineering",
+          "description": "Code, Frameworks, APIs, Git-Workflows, DevOps."
         },
         "pm": {
-          "label": "Product / Project Manager",
-          "description": "Sprints, Roadmap, OKRs, Stakeholder"
+          "label": "Produkt & Projekt",
+          "description": "Roadmaps, Tickets, Stand-ups, OKRs, Stakeholder."
         },
         "content": {
-          "label": "Content Creator",
-          "description": "SEO, Copywriting, Engagement, Analytics"
+          "label": "Content & Creator",
+          "description": "Skripte, Briefings, Social, Plattform-Jargon."
         },
         "design": {
-          "label": "Designer",
-          "description": "Figma, Wireframes, Design Systems"
+          "label": "Design",
+          "description": "Figma, Tokens, Komponenten, Typografie, UX-Begriffe."
         },
-        "consulting": {
-          "label": "Consulting / Business",
-          "description": "Workshops, Deliverables, Proposals"
+        "business": {
+          "label": "Consulting & Business",
+          "description": "Meetings, Kennzahlen, Proposals, Klienten, Branche."
         }
       }
     },
     "test": {
-      "title": "Kurzer Test",
-      "description": "Drücke deinen Shortcut und sprich etwas.",
-      "ready": "VOCA ist bereit!"
+      "eyebrow": "schritt 04 · dein erster versuch",
+      "title": "Probier's <em>einmal</em> aus.",
+      "lede": "Halte deine Tastenkombination gedrückt und sag einen beliebigen Satz. VOCA begleitet dich Schritt für Schritt.",
+      "status": {
+        "idle": "Bereit, wenn du bereit bist.",
+        "recording": "Läuft. Halt einfach weiter gedrückt.",
+        "processing": "Hole gerade deinen Text ab …",
+        "inserting": "Füge ein …"
+      },
+      "transcriptLabel": "transkript",
+      "wordsLabel": "wörter",
+      "charsLabel": "zeichen",
+      "continue": "Perfekt, weiter",
+      "skip": "Überspringen"
+    },
+    "pill": {
+      "bubble": "Hey, hier unten bin ich."
     },
     "aiEnhancement": {
-      "title": "KI-Nachbearbeitung",
-      "description": "Verbessert Interpunktion und Formatierung automatisch.",
-      "skip": "Überspringen",
-      "setup": "Einrichten",
-      "enable": "KI-Nachbearbeitung aktivieren",
-      "skipForNow": "Jetzt überspringen"
+      "eyebrow": "schritt 05 · optional",
+      "title": "Unbearbeitet oder in <em>Form</em> gebracht?",
+      "lede": "Auf Wunsch lässt VOCA dein Transkript durch ein Sprachmodell laufen. Es entfernt Füllwörter, korrigiert Grammatik und glättet den Satzbau. Deine Stimme bleibt erhalten. Jederzeit ein- oder ausschaltbar.",
+      "recommended": "empfohlen",
+      "providers": {
+        "groq": {
+          "meta": "llama 3.3 · kostenlos",
+          "desc": "Llama 3.3 70B Versatile. Kostenlos, sehr schnell - unser Default."
+        },
+        "anthropic": {
+          "meta": "claude haiku · kostenpflichtig",
+          "desc": "Claude Haiku. Differenziert, behält deinen Tonfall besonders gut."
+        },
+        "openai": {
+          "meta": "gpt-4o · kostenpflichtig",
+          "desc": "GPT-4o. Sehr zuverlässig, breites Sprachverständnis."
+        },
+        "gemini": {
+          "meta": "2.0 flash · kostenlos",
+          "desc": "Gemini 2.0 Flash. Kostenlos, gute Qualität, flotte Antwortzeiten."
+        },
+        "ollama": {
+          "meta": "lokal · kostenlos",
+          "desc": "Lokal auf deinem Rechner, Modell frei wählbar. Kein API-Schlüssel nötig."
+        }
+      },
+      "ollamaHint": "Ollama muss lokal laufen und das gewählte Modell heruntergeladen sein.",
+      "reuseBtn": "Gleichen Schlüssel nutzen",
+      "reuseHint": "Du nutzt {{provider}} bereits für die Transkription. Der bestehende Schlüssel kann hier übernommen werden.",
+      "getKey": "Schlüssel erstellen",
+      "enable": "Aktivieren",
+      "later": "Später entscheiden"
     },
-    "finish": "Speichern & Fertig"
+    "finale": {
+      "eyebrow": "einrichtung abgeschlossen",
+      "title": "Alles <em>bereit.</em>",
+      "lede": "VOCA läuft ab jetzt leise in der Menüleiste. Die Pille am unteren Rand taucht auf, sobald du aufnimmst. Alles Weitere findest du in den Einstellungen.",
+      "shortcutMeta": "drücken · sprechen · loslassen",
+      "cta": "Loslegen"
+    },
+    "footer": {
+      "back": "zurück",
+      "skip": "skip"
+    }
   },
   "settings": {
     "title": "Einstellungen",
@@ -189,12 +284,16 @@
     }
   },
   "errors": {
-    "apiKeyInvalid": "API Key ungültig. Bitte in den Einstellungen prüfen.",
-    "noInternet": "Keine Internetverbindung. Bitte Verbindung prüfen.",
-    "microphoneUnavailable": "Mikrofon nicht verfügbar. Bitte Berechtigungen in den Systemeinstellungen prüfen.",
+    "apiKeyInvalid": "Der Schlüssel funktioniert nicht. Prüfe, ob er vollständig kopiert ist, oder erstelle einen neuen.",
+    "apiKeyFormat": "Sieht nicht wie ein {{provider}}-Schlüssel aus. Bitte prüfen.",
+    "apiKeyEmpty": "Bitte Schlüssel einfügen, bevor du weitergehst.",
+    "noInternet": "Keine Verbindung. VOCA prüft den Schlüssel erneut, sobald du wieder online bist.",
+    "microphoneUnavailable": "Mikrofon-Zugriff verweigert. Öffne die Systemeinstellungen und erlaube VOCA das Mikrofon.",
+    "microphoneUnavailableMac": "VOCA hat keine Berechtigung für dein Mikrofon. Öffne die Systemeinstellungen, dann Datenschutz & Sicherheit, und aktiviere VOCA unter \"Mikrofon\". Die App startet danach automatisch neu.",
+    "microphoneUnavailableWindows": "Windows blockiert gerade den Mikrofonzugriff. Öffne die Einstellungen, dann Datenschutz & Sicherheit, und erlaube VOCA den Zugriff unter \"Mikrofon\".",
     "recordingFailed": "Aufnahme fehlgeschlagen.",
-    "shortcutConflict": "Shortcut konnte nicht registriert werden. Bitte einen anderen Shortcut wählen.",
-    "aiEnhancementFailed": "KI-Nachbearbeitung fehlgeschlagen – Originaltext wurde verwendet."
+    "shortcutConflict": "Diese Tastenkombination wird bereits verwendet. Probier eine andere, VOCA versteht sich mit fast allen.",
+    "aiEnhancementFailed": "KI-Nachbearbeitung fehlgeschlagen - Originaltext wurde verwendet."
   },
   "common": {
     "save": "Speichern",
@@ -202,6 +301,7 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "add": "Hinzufügen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "retry": "Erneut prüfen"
   }
 }
