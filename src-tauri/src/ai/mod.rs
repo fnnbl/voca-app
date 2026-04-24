@@ -1,3 +1,6 @@
+use regex::Regex;
+use std::sync::OnceLock;
+
 pub(crate) fn base_url(provider: &str, custom_endpoint: Option<&str>) -> String {
     match provider {
         "openai" => "https://api.openai.com/v1".into(),
@@ -73,7 +76,7 @@ async fn enhance_openai_compat(
 
     json["choices"][0]["message"]["content"]
         .as_str()
-        .map(|s| strip_meta_commentary(s.trim()))
+        .map(post_process_output)
         .ok_or_else(|| "AI_ENHANCEMENT_FAILED: unexpected response shape".into())
 }
 
@@ -116,12 +119,46 @@ async fn enhance_anthropic(
 
     json["content"][0]["text"]
         .as_str()
-        .map(|s| strip_meta_commentary(s.trim()))
+        .map(post_process_output)
         .ok_or_else(|| "AI_ENHANCEMENT_FAILED: unexpected response shape".into())
 }
 
 fn wrap_transcript(text: &str) -> String {
     format!("<transcript>\n{text}\n</transcript>")
+}
+
+/// Chain all LLM-output cleanup steps that don't depend on the caller.
+/// Order matters: strip meta commentary first so any trailing "I made
+/// the following changes…" block is removed — that brings a leaked
+/// `</transcript>` back to the end of the string where the close-tag
+/// regex can actually anchor on it.
+fn post_process_output(raw: &str) -> String {
+    let after_meta = strip_meta_commentary(raw.trim());
+    strip_transcript_tags(&after_meta)
+}
+
+/// Remove a leaked `<transcript>` opening tag at the very start of the
+/// output and/or a `</transcript>` closing tag at the very end. The
+/// default AI-enhancement prompt wraps the raw input in these tags and
+/// instructs the model not to echo them, but Llama 3.3 70B (our free
+/// default on Groq) occasionally leaks them anyway. Boundary-anchored
+/// so a transcript that legitimately mentions the word `<transcript>`
+/// in the middle stays intact.
+fn strip_transcript_tags(text: &str) -> String {
+    let open_re = open_tag_regex();
+    let close_re = close_tag_regex();
+    let after_open = open_re.replace(text, "");
+    close_re.replace(&after_open, "").into_owned()
+}
+
+fn open_tag_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(?i)^\s*<transcript\b[^>]*>\s*").expect("open-tag regex"))
+}
+
+fn close_tag_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(?i)\s*</transcript\s*>\s*$").expect("close-tag regex"))
 }
 
 const META_COMMENTARY_TRIGGERS: &[&str] = &[
@@ -279,5 +316,87 @@ mod tests {
     #[test]
     fn strip_meta_commentary_handles_empty_string() {
         assert_eq!(strip_meta_commentary(""), "");
+    }
+
+    // ── strip_transcript_tags ──────────────────────────────────────────────────
+
+    #[test]
+    fn strip_transcript_tags_removes_both_wrapper_tags() {
+        let leaked = "<transcript>\nDer Algorithmus initialisiert die Variable.\n</transcript>";
+        assert_eq!(
+            strip_transcript_tags(leaked),
+            "Der Algorithmus initialisiert die Variable."
+        );
+    }
+
+    #[test]
+    fn strip_transcript_tags_removes_opening_only() {
+        let leaked = "<transcript>\nHello world.";
+        assert_eq!(strip_transcript_tags(leaked), "Hello world.");
+    }
+
+    #[test]
+    fn strip_transcript_tags_removes_closing_only() {
+        let leaked = "Hello world.\n</transcript>";
+        assert_eq!(strip_transcript_tags(leaked), "Hello world.");
+    }
+
+    #[test]
+    fn strip_transcript_tags_passes_clean_output_through() {
+        let clean = "Hello world.";
+        assert_eq!(strip_transcript_tags(clean), clean);
+    }
+
+    #[test]
+    fn strip_transcript_tags_is_case_insensitive() {
+        let leaked = "<TRANSCRIPT>\nHello.\n</Transcript>";
+        assert_eq!(strip_transcript_tags(leaked), "Hello.");
+    }
+
+    #[test]
+    fn strip_transcript_tags_tolerates_attributes_on_opening_tag() {
+        let leaked = "<transcript id=\"x\">\nHello.\n</transcript>";
+        assert_eq!(strip_transcript_tags(leaked), "Hello.");
+    }
+
+    #[test]
+    fn strip_transcript_tags_only_affects_boundaries_not_mid_text() {
+        // If a user's transcript legitimately talks about the wrapper tag
+        // (unlikely but possible in a dev conversation), occurrences in the
+        // middle must survive.
+        let text = "I was editing <transcript> tags in the repo yesterday.";
+        assert_eq!(strip_transcript_tags(text), text);
+    }
+
+    #[test]
+    fn strip_transcript_tags_handles_empty_string() {
+        assert_eq!(strip_transcript_tags(""), "");
+    }
+
+    #[test]
+    fn strip_transcript_tags_collapses_whitespace_between_content_and_tags() {
+        let leaked = "<transcript>   \n\n  Hello.  \n\n   </transcript>";
+        assert_eq!(strip_transcript_tags(leaked), "Hello.");
+    }
+
+    // ── post_process_output ────────────────────────────────────────────────────
+
+    #[test]
+    fn post_process_output_combines_strips_in_right_order() {
+        // Worst-case leak: wrapper tags AND trailing meta commentary.
+        let leaked = "<transcript>\nDer Text ist bereinigt.\n</transcript>\n\nIch habe die folgenden Änderungen vorgenommen:\n- Komma\n- Punkt";
+        assert_eq!(post_process_output(leaked), "Der Text ist bereinigt.");
+    }
+
+    #[test]
+    fn post_process_output_trims_leading_and_trailing_whitespace() {
+        let input = "   Hello world.   ";
+        assert_eq!(post_process_output(input), "Hello world.");
+    }
+
+    #[test]
+    fn post_process_output_is_idempotent_on_clean_text() {
+        let clean = "Already clean output.";
+        assert_eq!(post_process_output(clean), clean);
     }
 }
