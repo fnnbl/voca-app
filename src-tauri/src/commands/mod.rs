@@ -105,6 +105,8 @@ pub fn save_settings(
         *app.state::<crate::RecordingGate>().0.lock().unwrap() = true;
         if let Some(pill) = app.get_webview_window("status-bar") {
             let _ = pill.show();
+            // Re-assert click-through — see show_pill for why.
+            let _ = pill.set_ignore_cursor_events(true);
         }
     }
 
@@ -121,6 +123,10 @@ pub fn unlock_recording(app: tauri::AppHandle) -> Result<(), String> {
 pub fn show_pill(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(pill) = app.get_webview_window("status-bar") {
         pill.show().map_err(|e| e.to_string())?;
+        // Re-assert click-through after show(). Windows drops the
+        // ignore-cursor flag across a hide/show cycle, which would
+        // leave the pill blocking clicks on apps underneath.
+        let _ = pill.set_ignore_cursor_events(true);
     }
     Ok(())
 }
