@@ -216,6 +216,34 @@ input[type="password"]::-ms-reveal { display: none; }
 .onb-err { font-family: var(--f-ui); font-size: 12.5px; color: var(--v-danger); padding: 8px 12px; border: 1px solid var(--v-danger); border-radius: var(--r-1); background: color-mix(in srgb, var(--v-danger) 8%, transparent); max-width: 500px; }
 .onb-reuse-hint { font-family: var(--f-ui); font-size: 12px; color: var(--v-ink-3); margin-top: 6px; max-width: 500px; line-height: 1.5; }
 
+/* About page */
+.about-page { max-width: 560px; margin: 0 auto; padding: 60px 0 80px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.about-brand { margin-bottom: 32px; }
+.about-wordmark { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.about-wordmark span { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: 28px; letter-spacing: 0.08em; color: var(--v-ink); line-height: 1; }
+.about-headline { font-family: var(--f-display); font-weight: 800; font-size: 32px; line-height: 1.2; letter-spacing: -0.005em; color: var(--v-ink); margin: 0 0 14px; max-width: 22ch; }
+.about-statement { font-family: var(--f-ui); font-size: 14.5px; line-height: 1.55; color: var(--v-ink-2); margin: 0 0 36px; max-width: 44ch; }
+.about-divider { width: 48px; height: 1px; background: var(--v-line); margin: 8px 0 24px; }
+.about-meta { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--v-ink-3); margin: 0 0 28px; }
+.about-bmc {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 22px;
+  background: var(--v-ink);
+  color: var(--v-bg);
+  border: 0;
+  border-radius: var(--r-pill);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.about-bmc:hover { transform: translateY(-1px); background: var(--v-ember); color: var(--v-bg); }
+.about-bmc:active { transform: translateY(0); }
+.about-credits { font-family: var(--f-ui); font-size: 12px; color: var(--v-ink-4); margin: 0; }
+
 /* Welcome-step language picker — quiet, top-right, native select */
 .onb-lang-picker { position: absolute; top: 24px; right: 32px; z-index: 2; }
 .onb-lang-picker select {

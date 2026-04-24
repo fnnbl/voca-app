@@ -182,7 +182,12 @@
       "ai": "Mejora con IA",
       "snippets": "Snippets",
       "dictionary": "Diccionario",
-      "fillers": "Muletillas"
+      "fillers": "Muletillas",
+      "about": "Acerca de"
+    },
+    "about": {
+      "bmc": "Buy me a coffee",
+      "credits": "Hecho con Tauri, React y whisper.cpp."
     },
     "general": {
       "language": "Idioma",
