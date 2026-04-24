@@ -3,7 +3,7 @@
 **Running on coffee and conviction.**
 *Trying to prove you can still build great software without turning it into a monthly bill.*
 
-VOCA is a cross-platform speech-to-text desktop app. Press a shortcut, speak, and the text lands directly in whatever you're typing into. Optional AI cleanup, custom snippets, custom dictionary, and a dictation history that stays on your device.
+VOCA is a speech-to-text desktop app. Press a shortcut, speak, and the text lands directly in whatever you're typing into. Optional AI cleanup, custom snippets, custom dictionary, and a dictation history that stays on your device.
 
 Open source under MIT. No subscription, no paid tier, no telemetry. If it makes your life easier, you're welcome to throw a coffee in the jar — see below.
 
@@ -23,13 +23,18 @@ Open source under MIT. No subscription, no paid tier, no telemetry. If it makes 
 - Six UI languages (DE, EN, ES, FR, PT, IT) with OS-locale auto-detection
 - Privacy-by-default: every tracking feature ships off
 
-## Platforms
+## Roadmap
 
-Windows and macOS. Linux is not a target — VOCA is a desktop dictation tool for the platforms most knowledge workers use.
+**v0.3.0 — Windows Public Beta** *(current)*
+First publicly distributed release. Ships unsigned with documented SmartScreen bypass; Windows code signing is a later phase once donation volume can sustain the cost.
 
-## Status
+**v0.4.0 — macOS Release** *(next)*
+Not yet shipped. Depends on Apple Developer Program membership + notarisation infrastructure; no fixed date. Targeted once the Windows beta has stabilised.
 
-v0.3.0 (Windows Public Beta) is the first publicly distributed release. macOS is in active development for v0.4.0 and depends on Apple Developer ID + notarisation infrastructure.
+**Linux — open, driven by demand**
+Not part of the current release plan, but the foundation is already there: audio, clipboard, whisper.cpp, global shortcut (X11), and Tauri bundling all work on Linux today. The remaining pieces — target-app tracking, per-app audio ducking, and the trade-offs between X11 and Wayland — are scoped, not prioritised. If interest shows up (issues, discussions, BMC messages), it moves up the list.
+
+Other platforms (iOS, Android) are out of scope — VOCA's architecture depends on a global shortcut + system text injection, which mobile operating systems don't expose to third-party apps.
 
 ## Build from source
 
