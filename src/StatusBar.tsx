@@ -62,13 +62,16 @@ export default function StatusBar() {
     document.body.style.overflow = 'hidden'
   }, [])
 
-  // Re-assert click-through on every app-state change. Windows drops the
-  // ignore-cursor flag across hide/show cycles and sometimes on webview
-  // focus changes; Rust sets it at window setup and after each show(),
-  // but repeating it on every render-visible state gives us a third safety
-  // net if either of those missed. The call is idempotent and cheap.
+  // Re-assert click-through and topmost on every app-state change.
+  // Windows drops both flags across hide/show cycles and sometimes on
+  // webview focus changes; Rust sets them at window setup and after each
+  // show(), but repeating here on every render-visible state gives us a
+  // third safety net if either of those missed. Both calls are idempotent
+  // and cheap.
   useEffect(() => {
-    getCurrentWebviewWindow().setIgnoreCursorEvents(true).catch(() => {})
+    const win = getCurrentWebviewWindow()
+    win.setIgnoreCursorEvents(true).catch(() => {})
+    win.setAlwaysOnTop(true).catch(() => {})
   }, [appState])
 
   useEffect(() => {
