@@ -105,8 +105,9 @@ pub fn save_settings(
         *app.state::<crate::RecordingGate>().0.lock().unwrap() = true;
         if let Some(pill) = app.get_webview_window("status-bar") {
             let _ = pill.show();
-            // Re-assert click-through — see show_pill for why.
+            // Re-assert click-through and topmost — see show_pill for why.
             let _ = pill.set_ignore_cursor_events(true);
+            let _ = pill.set_always_on_top(true);
         }
     }
 
@@ -127,6 +128,10 @@ pub fn show_pill(app: tauri::AppHandle) -> Result<(), String> {
         // ignore-cursor flag across a hide/show cycle, which would
         // leave the pill blocking clicks on apps underneath.
         let _ = pill.set_ignore_cursor_events(true);
+        // Same story for topmost — hide/show drops HWND_TOPMOST and the
+        // pill ends up behind any normal window (only visible on the
+        // bare desktop). Re-asserting keeps it floating above everything.
+        let _ = pill.set_always_on_top(true);
     }
     Ok(())
 }

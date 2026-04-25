@@ -155,6 +155,12 @@ pub fn run() {
                 // time closes the race where the pill is already visible
                 // before the webview JS has finished mounting.
                 let _ = status_bar.set_ignore_cursor_events(true);
+                // Topmost is similarly non-persistent on Windows: the
+                // tauri.conf.json `alwaysOnTop` flag sets the initial
+                // HWND_TOPMOST style, but hide/show cycles can drop it,
+                // leaving the pill behind any normal window. Re-asserting
+                // here matches the click-through belt-and-suspenders.
+                let _ = status_bar.set_always_on_top(true);
                 if !onboarding_done {
                     let _ = status_bar.hide();
                 }
