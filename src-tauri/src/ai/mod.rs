@@ -128,13 +128,19 @@ fn wrap_transcript(text: &str) -> String {
 }
 
 /// Chain all LLM-output cleanup steps that don't depend on the caller.
-/// Order matters: strip meta commentary first so any trailing "I made
-/// the following changes…" block is removed — that brings a leaked
-/// `</transcript>` back to the end of the string where the close-tag
-/// regex can actually anchor on it.
+/// Order matters and the paren-strip runs twice on purpose:
+/// - meta first so any `\n\n"I made the following changes"` block is
+///   removed before downstream regexes need to anchor on `$`.
+/// - paren-strip first pass catches a trailing `(No changes…)` that sits
+///   at the very end so the close-tag regex can then anchor on `</transcript>`.
+/// - tag-strip handles wrapper leaks at start and end.
+/// - paren-strip second pass catches the rarer shape where `(commentary)`
+///   was *between* content and close tag, exposed only after tag-strip.
 fn post_process_output(raw: &str) -> String {
     let after_meta = strip_meta_commentary(raw.trim());
-    strip_transcript_tags(&after_meta)
+    let after_paren_a = strip_trailing_paren_commentary(&after_meta);
+    let after_tags = strip_transcript_tags(&after_paren_a);
+    strip_trailing_paren_commentary(&after_tags)
 }
 
 /// Remove a leaked `<transcript>` opening tag at the very start of the
@@ -159,6 +165,36 @@ fn open_tag_regex() -> &'static Regex {
 fn close_tag_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r"(?i)\s*</transcript\s*>\s*$").expect("close-tag regex"))
+}
+
+/// Remove a trailing parenthetical commentary like
+/// `(No changes made — only English technical terms)` that some models
+/// like to append after the cleaned transcript. Different leak shape
+/// from the `\n\n`-anchored "I made the following changes" block —
+/// here the model packs its commentary into a final parenthetical
+/// without a paragraph break. Boundary-anchored on `$` and only fires
+/// when the paren content starts with a known commentary marker, so
+/// legitimate trailing parentheticals in the user's actual transcript
+/// (`…wir telefonieren später (oder morgen)`) survive.
+fn strip_trailing_paren_commentary(text: &str) -> String {
+    let re = trailing_paren_commentary_regex();
+    re.replace(text, "").into_owned()
+}
+
+fn trailing_paren_commentary_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        // Anchored at end of string. Matches a trailing parenthetical
+        // whose content starts with a multilingual commentary marker:
+        // - EN: "no change(s)", "no modification(s)", "note", "i ", "kept"
+        // - DE: "keine änderung(en)", "hinweis", "anmerkung"
+        // - ES: "sin cambios", "sin modificaciones", "nota"
+        // - FR: "aucun(e) changement", "aucune modification", "note"
+        // - PT: "sem alterações", "sem modificações", "nota"
+        // - IT: "nessuna modifica", "nessun cambiamento", "nota"
+        Regex::new(r#"(?i)\s*\(\s*(?:no\s+changes?|no\s+modifications?|note\b|i\s+(?:made|kept|left|did)|kept\s+|keine\s+änderung\w*|hinweis|anmerkung|sin\s+cambios|sin\s+modificacion\w*|nota\b|aucune?\s+(?:changement|modification)\w*|sem\s+altera\w*|sem\s+modifica\w*|nessuna\s+modifica\w*|nessun\s+cambiamento\w*)[^)]*\)\s*$"#)
+            .expect("trailing-paren-commentary regex")
+    })
 }
 
 const META_COMMENTARY_TRIGGERS: &[&str] = &[
@@ -386,6 +422,110 @@ mod tests {
         // Worst-case leak: wrapper tags AND trailing meta commentary.
         let leaked = "<transcript>\nDer Text ist bereinigt.\n</transcript>\n\nIch habe die folgenden Änderungen vorgenommen:\n- Komma\n- Punkt";
         assert_eq!(post_process_output(leaked), "Der Text ist bereinigt.");
+    }
+
+    // ── strip_trailing_paren_commentary ────────────────────────────────────────
+
+    #[test]
+    fn strip_trailing_paren_strips_no_changes_made() {
+        // The exact leak shape Fynn caught after the prompt-softening
+        // landed: model packs "no changes" commentary into a trailing
+        // parenthetical instead of a separate "\n\nI made..." block.
+        let leaked = "Develop, auschecken, fetchen und pullen. (No changes made - only English technical terms, \"Fetchen\" to \"Fetchen\" is okay as it's Denglisch, Auschecken = checkout, Pullen = pull)";
+        assert_eq!(
+            strip_trailing_paren_commentary(leaked),
+            "Develop, auschecken, fetchen und pullen."
+        );
+    }
+
+    #[test]
+    fn strip_trailing_paren_strips_note_marker() {
+        let leaked = "Der Termin ist morgen. (Note: I added the period.)";
+        assert_eq!(
+            strip_trailing_paren_commentary(leaked),
+            "Der Termin ist morgen."
+        );
+    }
+
+    #[test]
+    fn strip_trailing_paren_strips_german_keine_aenderungen() {
+        let leaked = "Wir telefonieren morgen. (Keine Änderungen vorgenommen.)";
+        assert_eq!(
+            strip_trailing_paren_commentary(leaked),
+            "Wir telefonieren morgen."
+        );
+    }
+
+    #[test]
+    fn strip_trailing_paren_strips_french_aucune_modification() {
+        let leaked = "On se rappelle demain. (Aucune modification nécessaire.)";
+        assert_eq!(
+            strip_trailing_paren_commentary(leaked),
+            "On se rappelle demain."
+        );
+    }
+
+    #[test]
+    fn strip_trailing_paren_strips_spanish_sin_cambios() {
+        let leaked = "Te llamo mañana. (Sin cambios — el texto ya estaba limpio.)";
+        assert_eq!(
+            strip_trailing_paren_commentary(leaked),
+            "Te llamo mañana."
+        );
+    }
+
+    #[test]
+    fn strip_trailing_paren_strips_i_kept_form() {
+        let leaked = "Hello world. (I kept the original spelling.)";
+        assert_eq!(
+            strip_trailing_paren_commentary(leaked),
+            "Hello world."
+        );
+    }
+
+    #[test]
+    fn strip_trailing_paren_preserves_legitimate_trailing_paren() {
+        // A user might dictate a parenthetical at the end of their
+        // actual sentence — those must survive untouched.
+        let text = "Wir telefonieren später (oder morgen).";
+        assert_eq!(strip_trailing_paren_commentary(text), text);
+    }
+
+    #[test]
+    fn strip_trailing_paren_preserves_legitimate_aside() {
+        let text = "I'll call Max (or maybe Tom).";
+        assert_eq!(strip_trailing_paren_commentary(text), text);
+    }
+
+    #[test]
+    fn strip_trailing_paren_preserves_mid_text_parenthetical() {
+        // Even if the parenthetical contains commentary-like keywords,
+        // it has to be at the end. A mid-text occurrence is part of
+        // the user's transcript.
+        let text = "I added the note (no changes were needed) and moved on.";
+        assert_eq!(strip_trailing_paren_commentary(text), text);
+    }
+
+    #[test]
+    fn strip_trailing_paren_passes_clean_text_through() {
+        let clean = "Just a normal sentence with nothing in parens.";
+        assert_eq!(strip_trailing_paren_commentary(clean), clean);
+    }
+
+    #[test]
+    fn strip_trailing_paren_handles_empty_string() {
+        assert_eq!(strip_trailing_paren_commentary(""), "");
+    }
+
+    #[test]
+    fn post_process_output_handles_combined_tag_and_paren_leak() {
+        // Both leak shapes at once: opening transcript tag AND trailing
+        // parenthetical commentary. Both have to be stripped.
+        let leaked = "<transcript>\nDevelop, auschecken, fetchen und pullen.\n</transcript> (No changes made - already clean.)";
+        assert_eq!(
+            post_process_output(leaked),
+            "Develop, auschecken, fetchen und pullen."
+        );
     }
 
     #[test]
