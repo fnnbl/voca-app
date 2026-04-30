@@ -2,13 +2,13 @@
 
 ## Kurzfassung
 
-VOCA hat keine eigenen Server. Was du diktierst, bleibt entweder lokal auf deinem Rechner oder geht direkt an den Cloud-Provider, den du selbst konfigurierst — dort gilt dessen Datenschutzerklärung. Wir sammeln keine Telemetrie, keine Nutzungsstatistiken, keine Crash-Reports. History und App-Tracking kannst du jederzeit ausschalten.
+VOCA hat keine eigenen Server. Was du diktierst, bleibt entweder lokal auf deinem Rechner oder geht direkt an den Cloud-Provider, den du selbst konfigurierst - dort gilt dessen Datenschutzerklärung. Wir sammeln keine Telemetrie, keine Nutzungsstatistiken, keine Crash-Reports. History und App-Tracking kannst du jederzeit ausschalten.
 
 ## 1. Verantwortlicher
 
-[Name und Adresse — wird mit Impressum gesetzt]
+[Name und Adresse - wird mit Impressum gesetzt]
 
-Kontakt: [E-Mail — TBD]
+Kontakt: [E-Mail - TBD]
 
 ## 2. Welche Daten verarbeitet werden
 
@@ -24,7 +24,7 @@ VOCA verarbeitet folgende Daten:
 Es gibt zwei Modi:
 
 - **Lokal:** Spracherkennung mit `whisper.cpp` läuft komplett auf deinem Gerät. Audio und Transkript verlassen den Rechner nicht.
-- **Cloud-Provider:** Wenn du einen externen STT- oder KI-Provider konfigurierst (OpenAI, Groq, Deepgram, ElevenLabs, Google Gemini, Anthropic, OpenRouter, oder ein eigener API-Endpoint), wird das Audio bzw. der Transkript-Text an dessen Server geschickt. Dort gilt dessen Datenschutzerklärung. VOCA fungiert nur als Übermittler — wir bekommen keine Kopie.
+- **Cloud-Provider:** Wenn du einen externen STT- oder KI-Provider konfigurierst (OpenAI, Groq, Deepgram, ElevenLabs, Google Gemini, Anthropic, OpenRouter, oder ein eigener API-Endpoint), wird das Audio bzw. der Transkript-Text an dessen Server geschickt. Dort gilt dessen Datenschutzerklärung. VOCA fungiert nur als Übermittler - wir bekommen keine Kopie.
 
 ## 4. BYO-Key (Bring Your Own Key)
 
@@ -32,8 +32,8 @@ VOCA hat kein eigenes Account-System und keinen API-Key, mit dem du auf Cloud-Pr
 
 ## 5. Optionale Features (Opt-in / Opt-out)
 
-- **Transkript-Historie** (`Datenschutz → Transkripte speichern`): Standardmäßig **an**. Speichert deine Transkripte in einer lokalen SQLite-Datenbank, damit du sie auf der History-Seite einsehen kannst. Lässt sich jederzeit ausschalten — bestehende Einträge kannst du einzeln oder komplett löschen.
-- **Ziel-App-Tracking** (`Datenschutz → Ziel-App speichern`): Standardmäßig **aus**. Wenn aktiviert, speichert VOCA zusätzlich zu jedem Transkript, in welche App du den Text eingefügt hast (z.B. "Slack", "Word"). Bleibt komplett lokal. Lässt sich jederzeit ausschalten — bestehende App-Daten werden auf Wunsch gelöscht.
+- **Transkript-Historie** (`Datenschutz → Transkripte speichern`): Standardmäßig **an**. Speichert deine Transkripte in einer lokalen SQLite-Datenbank, damit du sie auf der History-Seite einsehen kannst. Lässt sich jederzeit ausschalten - bestehende Einträge kannst du einzeln oder komplett löschen.
+- **Ziel-App-Tracking** (`Datenschutz → Ziel-App speichern`): Standardmäßig **aus**. Wenn aktiviert, speichert VOCA zusätzlich zu jedem Transkript, in welche App du den Text eingefügt hast (z.B. "Slack", "Word"). Bleibt komplett lokal. Lässt sich jederzeit ausschalten - bestehende App-Daten werden auf Wunsch gelöscht.
 
 Beide Features sind **lokal**. Es findet keine Übertragung an uns oder Dritte statt.
 
@@ -56,7 +56,7 @@ Auch wenn wir kaum Daten verarbeiten, hast du nach DSGVO folgende Rechte uns geg
 - **Art. 18 – Einschränkung der Verarbeitung:** entfällt mangels Verarbeitung auf unserer Seite.
 - **Art. 20 – Datenübertragbarkeit:** Settings, Snippets und History exportierst du selbst aus der App.
 - **Art. 21 – Widerspruch:** entfällt mangels Verarbeitung auf unserer Seite.
-- **Art. 77 – Beschwerderecht:** Du hast das Recht, dich bei einer Aufsichtsbehörde zu beschweren — z.B. dem Bundesbeauftragten für den Datenschutz oder der zuständigen Landesbehörde.
+- **Art. 77 – Beschwerderecht:** Du hast das Recht, dich bei einer Aufsichtsbehörde zu beschweren - z.B. dem Bundesbeauftragten für den Datenschutz oder der zuständigen Landesbehörde.
 
 ## 8. Drittanbieter
 
@@ -75,7 +75,7 @@ Bei einem Custom Endpoint bist du selbst dafür verantwortlich, zu wissen, an we
 
 ## 9. Kontakt
 
-Fragen zum Datenschutz: [E-Mail — TBD]
+Fragen zum Datenschutz: [E-Mail - TBD]
 
 ---
 

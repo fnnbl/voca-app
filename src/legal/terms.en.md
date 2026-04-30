@@ -6,7 +6,7 @@ VOCA is open-source software under the MIT License, free, no warranty. Donations
 
 ## 1. License
 
-VOCA is released under the **MIT License**. You may use, copy, modify, redistribute, and embed the software — commercially or privately — as long as the license text and copyright notice are preserved. The full license is in the repository at [LICENSE](https://github.com/fnnbl/voca-app/blob/main/LICENSE).
+VOCA is released under the **MIT License**. You may use, copy, modify, redistribute, and embed the software - commercially or privately - as long as the license text and copyright notice are preserved. The full license is in the repository at [LICENSE](https://github.com/fnnbl/voca-app/blob/main/LICENSE).
 
 ## 2. Disclaimer of Warranty / Liability
 
@@ -22,7 +22,7 @@ Donations are **non-refundable**. If you want to reverse a donation, contact Buy
 
 ## 4. Third Parties
 
-When you configure cloud providers in VOCA, you enter a separate agreement with that provider (OpenAI, Anthropic, etc.). Their terms apply between you and the provider — VOCA is not a contractual party.
+When you configure cloud providers in VOCA, you enter a separate agreement with that provider (OpenAI, Anthropic, etc.). Their terms apply between you and the provider - VOCA is not a contractual party.
 
 ## 5. Changes
 
