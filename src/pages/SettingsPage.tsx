@@ -10,11 +10,13 @@ import { FillersSettings } from './settings/FillersSettings'
 import { HistoryPage } from './HistoryPage'
 import { StatsPage } from './StatsPage'
 import { AboutPage } from './AboutPage'
+import { LegalPage } from './LegalPage'
 import { DEFAULT_SHORTCUT } from '../types'
 import type { Settings } from '../types'
 import { formatShortcut } from '../shortcut/format'
 
-type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general' | 'about'
+type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general' | 'about' | 'legal'
+type LegalTab = 'privacy' | 'terms'
 
 interface Props {
   settings: Settings
@@ -24,7 +26,13 @@ interface Props {
 export function SettingsPage({ settings, onSave }: Props) {
   const { t } = useTranslation()
   const [active, setActive] = useState<NavId>('history')
+  const [legalTab, setLegalTab] = useState<LegalTab>('privacy')
   const error = useAppStore((s) => s.error)
+
+  function openLegal(tab: LegalTab) {
+    setLegalTab(tab)
+    setActive('legal')
+  }
 
   function handleChange(updated: Settings) {
     onSave(updated).catch(console.error)
@@ -100,7 +108,8 @@ export function SettingsPage({ settings, onSave }: Props) {
           {active === 'dictionary'    && <DictionarySettings />}
           {active === 'fillers'       && <FillersSettings settings={settings} onChange={handleChange} />}
           {active === 'general'       && <GeneralSettings settings={settings} onChange={handleChange} />}
-          {active === 'about'         && <AboutPage />}
+          {active === 'about'         && <AboutPage onOpenLegal={openLegal} />}
+          {active === 'legal'         && <LegalPage initialTab={legalTab} />}
         </div>
       </main>
     </div>
