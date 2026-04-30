@@ -187,7 +187,12 @@
     },
     "about": {
       "bmc": "Buy me a coffee",
-      "credits": "Realizzato con Tauri, React e whisper.cpp."
+      "credits": "Realizzato con Tauri, React e whisper.cpp.",
+      "legalLinks": "Note legali"
+    },
+    "legal": {
+      "privacy": "Privacy",
+      "terms": "Termini"
     },
     "general": {
       "language": "Lingua",

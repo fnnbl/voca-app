@@ -3,7 +3,11 @@ import { open } from '@tauri-apps/plugin-shell'
 
 const BMC_URL = 'https://buymeacoffee.com/fnnbl'
 
-export function AboutPage() {
+interface Props {
+  onOpenLegal?: (tab: 'privacy' | 'terms') => void
+}
+
+export function AboutPage({ onOpenLegal }: Props) {
   const { t } = useTranslation()
 
   return (
@@ -41,6 +45,18 @@ export function AboutPage() {
       <p className="about-credits">
         {t('settings.about.credits', 'Built with Tauri, React, and whisper.cpp.')}
       </p>
+
+      {onOpenLegal && (
+        <nav className="about-legal-links" aria-label={t('settings.about.legalLinks', 'Legal')}>
+          <button type="button" onClick={() => onOpenLegal('privacy')}>
+            {t('settings.legal.privacy', 'Privacy')}
+          </button>
+          <span aria-hidden="true">·</span>
+          <button type="button" onClick={() => onOpenLegal('terms')}>
+            {t('settings.legal.terms', 'Terms')}
+          </button>
+        </nav>
+      )}
     </div>
   )
 }
