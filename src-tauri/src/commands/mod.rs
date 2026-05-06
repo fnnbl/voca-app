@@ -82,7 +82,58 @@ pub fn save_settings(
     app: tauri::AppHandle,
     settings: serde_json::Value,
 ) -> Result<(), String> {
-    storage::save(&app, &settings)
+    // Intercept the onboardingCompleted transition from false → true. This
+    // covers every completion path (Done step, skip button, closing the
+    // window mid-flow) in one spot so frontend callers don't have to
+    // remember to unlock the gate and show the pill themselves.
+    let prev = storage::load(&app).ok();
+    let was_done = prev
+        .as_ref()
+        .and_then(|s| s["general"]["onboardingCompleted"].as_bool())
+        .unwrap_or(false);
+    let is_done = settings["general"]["onboardingCompleted"]
+        .as_bool()
+        .unwrap_or(false);
+
+    storage::save(&app, &settings)?;
+
+    if !was_done && is_done {
+        // Completion just happened — unlock recording and reveal pill if it
+        // was hidden. We don't animate here; this path is for users who
+        // skipped past the Test step. The animated reveal only fires via
+        // the `pill-animate-reveal` event from the Test step mount.
+        *app.state::<crate::RecordingGate>().0.lock().unwrap() = true;
+        if let Some(pill) = app.get_webview_window("status-bar") {
+            let _ = pill.show();
+            // Re-assert click-through and topmost — see show_pill for why.
+            let _ = pill.set_ignore_cursor_events(true);
+            let _ = pill.set_always_on_top(true);
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn unlock_recording(app: tauri::AppHandle) -> Result<(), String> {
+    *app.state::<crate::RecordingGate>().0.lock().unwrap() = true;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn show_pill(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(pill) = app.get_webview_window("status-bar") {
+        pill.show().map_err(|e| e.to_string())?;
+        // Re-assert click-through after show(). Windows drops the
+        // ignore-cursor flag across a hide/show cycle, which would
+        // leave the pill blocking clicks on apps underneath.
+        let _ = pill.set_ignore_cursor_events(true);
+        // Same story for topmost — hide/show drops HWND_TOPMOST and the
+        // pill ends up behind any normal window (only visible on the
+        // bare desktop). Re-asserting keeps it floating above everything.
+        let _ = pill.set_always_on_top(true);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -238,6 +289,40 @@ pub fn save_dictionary(app: tauri::AppHandle, entries: Vec<crate::storage::Dicti
 }
 
 #[tauri::command]
+pub fn seed_dictionary_with_use_cases(
+    app: tauri::AppHandle,
+    use_cases: Vec<String>,
+) -> Result<(), String> {
+    let existing = crate::storage::load_dictionary(&app).unwrap_or_default();
+
+    // Case-insensitive dedupe against existing entries — we never duplicate a
+    // word the user already has, and we never overwrite their choices.
+    let mut existing_keys: std::collections::HashSet<String> =
+        existing.iter().map(|e| e.word.to_lowercase()).collect();
+
+    let refs: Vec<&str> = use_cases.iter().map(|s| s.as_str()).collect();
+    let seed_words = crate::storage::dictionary_seeds::seeds_for(&refs);
+
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+
+    let mut merged = existing;
+    for (index, word) in seed_words.into_iter().enumerate() {
+        let key = word.to_lowercase();
+        if existing_keys.insert(key) {
+            merged.push(crate::storage::DictionaryEntry {
+                id: format!("seed-{nanos}-{index}"),
+                word,
+            });
+        }
+    }
+
+    crate::storage::save_dictionary(&app, &merged)
+}
+
+#[tauri::command]
 pub fn get_snippets(app: tauri::AppHandle) -> Result<Vec<crate::storage::Snippet>, String> {
     crate::storage::load_snippets(&app)
 }
@@ -245,6 +330,16 @@ pub fn get_snippets(app: tauri::AppHandle) -> Result<Vec<crate::storage::Snippet
 #[tauri::command]
 pub fn save_snippets(app: tauri::AppHandle, snippets: Vec<crate::storage::Snippet>) -> Result<(), String> {
     crate::storage::save_snippets(&app, &snippets)
+}
+
+#[tauri::command]
+pub fn get_fillers(app: tauri::AppHandle) -> Result<Vec<crate::storage::FillerEntry>, String> {
+    crate::storage::load_fillers(&app)
+}
+
+#[tauri::command]
+pub fn save_fillers(app: tauri::AppHandle, entries: Vec<crate::storage::FillerEntry>) -> Result<(), String> {
+    crate::storage::save_fillers(&app, &entries)
 }
 
 #[tauri::command]
@@ -264,6 +359,13 @@ pub fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String>
 #[tauri::command]
 pub fn get_history(app: tauri::AppHandle) -> Result<Vec<crate::storage::HistoryEntry>, String> {
     crate::storage::load_history(&app)
+}
+
+#[tauri::command]
+pub fn get_stats(app: tauri::AppHandle) -> Result<crate::stats::StatsSummary, String> {
+    let history = crate::storage::load_history(&app)?;
+    let now_ms = chrono::Local::now().timestamp_millis();
+    Ok(crate::stats::aggregate(&history, now_ms))
 }
 
 #[tauri::command]

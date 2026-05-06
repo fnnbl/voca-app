@@ -26,9 +26,12 @@ pub async fn process(app: AppHandle) {
 
     let settings = crate::storage::load(&app).unwrap_or_default();
 
-    let language = settings["general"]["language"]
+    // Transcription language is an independent setting from UI language.
+    // "auto" (the default) lets the STT provider detect the language itself,
+    // which avoids forcing a wrong hint when the speaker mixes languages.
+    let language = settings["transcription"]["language"]
         .as_str()
-        .unwrap_or("de")
+        .unwrap_or("auto")
         .to_owned();
 
     let mode = settings["transcription"]["mode"]
@@ -84,7 +87,8 @@ pub async fn process(app: AppHandle) {
         }
     };
 
-    let expanded_text = apply_snippets(&app, raw_text);
+    let filtered_text = maybe_remove_fillers(&app, &settings, raw_text);
+    let expanded_text = apply_snippets(&app, filtered_text);
     let pre_enhance = expanded_text.clone();
     let final_text = maybe_enhance(&app, &settings, expanded_text).await;
 
@@ -101,6 +105,21 @@ pub async fn process(app: AppHandle) {
 
     let paste_text = format!("{} ", final_text.trim());
 
+    let history_tracking = settings["privacy"]["historyTracking"]
+        .as_bool()
+        .unwrap_or(true);
+    let target_app_tracking = settings["privacy"]["targetAppTracking"]
+        .as_bool()
+        .unwrap_or(false);
+
+    // Capture must happen while the user's target app is still frontmost —
+    // i.e. before we simulate Ctrl+V. Skip entirely when either toggle is off.
+    let target_app = if history_tracking && target_app_tracking {
+        crate::target_app::capture()
+    } else {
+        None
+    };
+
     transition_to_inserting(&app);
     if let Err(e) = crate::clipboard::paste(&paste_text) {
         crate::errors::emit(&app, "PASTE_FAILED", &e);
@@ -109,19 +128,22 @@ pub async fn process(app: AppHandle) {
     }
     transition_to_idle(&app);
 
-    let timestamp_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let _ = crate::storage::append_history_entry(&app, crate::storage::HistoryEntry {
-        id: timestamp_ms.to_string(),
-        timestamp_ms,
-        text: final_text.trim().to_owned(),
-        enhanced: was_enhanced,
-        duration_secs,
-        word_count,
-        provider,
-    });
+    if history_tracking {
+        let timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let _ = crate::storage::append_history_entry(&app, crate::storage::HistoryEntry {
+            id: timestamp_ms.to_string(),
+            timestamp_ms,
+            text: final_text.trim().to_owned(),
+            enhanced: was_enhanced,
+            duration_secs,
+            word_count,
+            provider,
+            target_app,
+        });
+    }
 
     let _ = app.emit("transcription-result", TranscriptionResultPayload { text: final_text.trim().to_owned() });
 }
@@ -266,8 +288,10 @@ async fn call_openai_compat(
 
     let mut form = reqwest::multipart::Form::new()
         .part("file", part)
-        .text("model", model.to_owned())
-        .text("language", language.to_owned());
+        .text("model", model.to_owned());
+    if !is_auto_language(language) {
+        form = form.text("language", language.to_owned());
+    }
     if let Some(prompt) = initial_prompt {
         form = form.text("prompt", prompt.to_owned());
     }
@@ -321,10 +345,15 @@ async fn call_deepgram(
                 .collect::<String>()
         })
         .unwrap_or_default();
+    let language_param = if is_auto_language(language) {
+        "detect_language=true".to_owned()
+    } else {
+        format!("language={language}")
+    };
     let client = reqwest::Client::new();
     let response = client
         .post(format!(
-            "https://api.deepgram.com/v1/listen?language={language}&model={model}&smart_format=true{keywords}"
+            "https://api.deepgram.com/v1/listen?{language_param}&model={model}&smart_format=true{keywords}"
         ))
         .header("Authorization", format!("Token {api_key}"))
         .header("Content-Type", "audio/wav")
@@ -374,7 +403,7 @@ async fn call_elevenlabs(
         .part("file", part)
         .text("model_id", model.to_owned());
 
-    if !language.is_empty() {
+    if !is_auto_language(language) {
         form = form.text("language_code", language.to_owned());
     }
 
@@ -428,7 +457,7 @@ async fn call_gemini(
         .map(|p| format!(" Pay attention to these terms: {p}."))
         .unwrap_or_default();
 
-    let prompt = if language.is_empty() || language == "auto" {
+    let prompt = if is_auto_language(language) {
         format!("Transcribe the following audio. Return only the transcribed text, nothing else.{vocab_hint}")
     } else {
         format!("Transcribe the following audio in {language}. Return only the transcribed text, nothing else.{vocab_hint}")
@@ -527,12 +556,8 @@ async fn maybe_enhance(
         _ => return text,
     };
 
-    let prompt_text = match crate::storage::load_prompts(app) {
-        Ok(prompts) => prompts
-            .into_iter()
-            .find(|p| p.id == active_prompt_id)
-            .map(|p| p.prompt)
-            .unwrap_or_default(),
+    let prompt_text = match crate::storage::resolve_active_prompt_text(app, &active_prompt_id) {
+        Ok(t) => t,
         Err(_) => return text,
     };
 
@@ -558,16 +583,47 @@ async fn maybe_enhance(
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+pub(crate) fn is_auto_language(language: &str) -> bool {
+    language.is_empty() || language.eq_ignore_ascii_case("auto")
+}
+
 fn build_dict_prompt(app: &AppHandle) -> Option<String> {
     let entries = crate::storage::load_dictionary(app).ok()?;
     dict_entries_to_prompt(&entries)
 }
 
+// Whisper (both OpenAI's hosted variant and Groq's mirror of the same API)
+// rejects `initial_prompt` values longer than ~896 characters — it's a hard
+// limit driven by the 224-token decoder context. We cap at 880 to leave a
+// small safety margin, take entries greedily in order, and stop before the
+// next entry would push us over. A word on its own that's already longer
+// than the cap gets skipped rather than truncated mid-term.
+const DICT_PROMPT_MAX_CHARS: usize = 880;
+
 pub(crate) fn dict_entries_to_prompt(entries: &[crate::storage::DictionaryEntry]) -> Option<String> {
     if entries.is_empty() {
         return None;
     }
-    Some(entries.iter().map(|e| e.word.as_str()).collect::<Vec<_>>().join(", "))
+    let mut out = String::new();
+    for entry in entries {
+        let word = entry.word.trim();
+        if word.is_empty() {
+            continue;
+        }
+        let projected_len = if out.is_empty() {
+            word.len()
+        } else {
+            out.len() + 2 + word.len() // ", " separator
+        };
+        if projected_len > DICT_PROMPT_MAX_CHARS {
+            continue;
+        }
+        if !out.is_empty() {
+            out.push_str(", ");
+        }
+        out.push_str(word);
+    }
+    if out.is_empty() { None } else { Some(out) }
 }
 
 fn apply_snippets(app: &AppHandle, text: String) -> String {
@@ -576,6 +632,69 @@ fn apply_snippets(app: &AppHandle, text: String) -> String {
         Err(_) => return text,
     };
     apply_snippets_to_text(text, &snippets)
+}
+
+fn maybe_remove_fillers(
+    app: &AppHandle,
+    settings: &serde_json::Value,
+    text: String,
+) -> String {
+    if !settings["transcription"]["removeFillerWords"]
+        .as_bool()
+        .unwrap_or(false)
+    {
+        return text;
+    }
+    let fillers = match crate::storage::load_fillers(app) {
+        Ok(list) => list,
+        Err(_) => return text,
+    };
+    let words: Vec<String> = fillers.into_iter().map(|e| e.word).collect();
+    apply_fillers_to_text(text, &words)
+}
+
+pub(crate) fn apply_fillers_to_text(text: String, fillers: &[String]) -> String {
+    if fillers.is_empty() {
+        return text;
+    }
+    let mut result = text;
+    for filler in fillers {
+        let trimmed = filler.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let pattern = format!(r"(?i)\b{}\b", regex_escape(trimmed));
+        if let Ok(re) = regex::Regex::new(&pattern) {
+            result = re.replace_all(&result, "").into_owned();
+        }
+    }
+    normalize_after_filler_removal(&result)
+}
+
+fn normalize_after_filler_removal(s: &str) -> String {
+    // Collapse runs of whitespace into single spaces. STT output is typically
+    // single-line so this is safe; preserving multi-line structure would need
+    // a smarter collapse.
+    let collapsed: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    // Remove the space before sentence punctuation ("text , word" → "text, word").
+    let mut cleaned = String::with_capacity(collapsed.len());
+    let mut prev: char = ' ';
+    for ch in collapsed.chars() {
+        if matches!(ch, ',' | '.' | '!' | '?' | ';' | ':') && prev == ' ' {
+            cleaned.pop();
+        }
+        cleaned.push(ch);
+        prev = ch;
+    }
+    // Strip orphan punctuation left over when a filler was the first token
+    // (e.g., "Also, ich bin" → after removal "", ich bin" → "ich bin").
+    cleaned
+        .trim()
+        .trim_start_matches(|c: char| {
+            c.is_whitespace() || matches!(c, ',' | ';' | '.' | '!' | '?' | ':')
+        })
+        .trim_start()
+        .to_owned()
 }
 
 pub(crate) fn apply_snippets_to_text(text: String, snippets: &[crate::storage::Snippet]) -> String {
@@ -728,6 +847,99 @@ mod tests {
         DictionaryEntry { id: "test".into(), word: word.into() }
     }
 
+    // ── apply_fillers_to_text ─────────────────────────────────────────────────
+
+    #[test]
+    fn fillers_empty_list_returns_text_unchanged() {
+        assert_eq!(apply_fillers_to_text("ich bin müde".into(), &[]), "ich bin müde");
+    }
+
+    #[test]
+    fn fillers_remove_single_whole_word() {
+        let list = vec!["halt".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("ich bin halt müde".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    #[test]
+    fn fillers_are_case_insensitive() {
+        let list = vec!["also".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("Also, das ist ALSO nicht okay".into(), &list),
+            "das ist nicht okay"
+        );
+    }
+
+    #[test]
+    fn fillers_respect_word_boundaries() {
+        // "so" must not eat "also" or "sort"
+        let list = vec!["so".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("also sprach er so laut".into(), &list),
+            "also sprach er laut"
+        );
+    }
+
+    #[test]
+    fn fillers_remove_multiple_distinct_words() {
+        let list = vec!["um".to_string(), "ähm".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("um ich bin ähm müde".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    #[test]
+    fn fillers_clean_up_orphaned_punctuation_spacing() {
+        let list = vec!["also".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("ich bin also, müde".into(), &list),
+            "ich bin, müde"
+        );
+    }
+
+    #[test]
+    fn fillers_trim_leading_and_trailing_whitespace() {
+        let list = vec!["also".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("also ich bin müde also".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    #[test]
+    fn fillers_skip_empty_entries_in_list() {
+        // Empty/whitespace entries in the list must be ignored, not match everything.
+        let list = vec!["".to_string(), "  ".to_string(), "halt".to_string()];
+        assert_eq!(
+            apply_fillers_to_text("ich bin halt müde".into(), &list),
+            "ich bin müde"
+        );
+    }
+
+    // ── is_auto_language ──────────────────────────────────────────────────────
+
+    #[test]
+    fn is_auto_language_matches_empty_string() {
+        assert!(is_auto_language(""));
+    }
+
+    #[test]
+    fn is_auto_language_matches_auto_case_insensitively() {
+        assert!(is_auto_language("auto"));
+        assert!(is_auto_language("Auto"));
+        assert!(is_auto_language("AUTO"));
+    }
+
+    #[test]
+    fn is_auto_language_rejects_explicit_codes() {
+        assert!(!is_auto_language("de"));
+        assert!(!is_auto_language("en"));
+        assert!(!is_auto_language("es"));
+    }
+
     // ── apply_snippets_to_text ────────────────────────────────────────────────
 
     #[test]
@@ -825,6 +1037,54 @@ mod tests {
     fn dict_prompt_multiple_words_comma_separated() {
         let entries = vec![make_entry("VOCA"), make_entry("Tauri"), make_entry("Whisper")];
         assert_eq!(dict_entries_to_prompt(&entries), Some("VOCA, Tauri, Whisper".into()));
+    }
+
+    #[test]
+    fn dict_prompt_caps_at_whisper_context_limit() {
+        // 140 entries of 10 chars each would join to ~1540 chars — well over
+        // Whisper's 896-char ceiling. Output must stay at or below the
+        // 880-char cap.
+        let entries: Vec<_> = (0..140).map(|i| make_entry(&format!("word{i:04}"))).collect();
+        let result = dict_entries_to_prompt(&entries).unwrap();
+        assert!(
+            result.len() <= DICT_PROMPT_MAX_CHARS,
+            "prompt exceeded cap: {} chars",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn dict_prompt_keeps_early_entries_when_capping() {
+        // When the list is too long, early entries survive (user's order is
+        // respected), later ones get dropped. Verifies no reshuffling.
+        let entries: Vec<_> = (0..140).map(|i| make_entry(&format!("word{i:04}"))).collect();
+        let result = dict_entries_to_prompt(&entries).unwrap();
+        assert!(result.starts_with("word0000, word0001, word0002"));
+    }
+
+    #[test]
+    fn dict_prompt_skips_individual_entries_longer_than_cap() {
+        // A single entry longer than the whole cap is skipped rather than
+        // truncated mid-word. The rest of the list continues normally.
+        let long_word = "a".repeat(1000);
+        let entries = vec![
+            make_entry("Commit"),
+            make_entry(&long_word),
+            make_entry("Merge"),
+        ];
+        let result = dict_entries_to_prompt(&entries).unwrap();
+        assert_eq!(result, "Commit, Merge");
+    }
+
+    #[test]
+    fn dict_prompt_skips_empty_and_whitespace_entries() {
+        let entries = vec![
+            make_entry(""),
+            make_entry("   "),
+            make_entry("Commit"),
+            make_entry("Merge"),
+        ];
+        assert_eq!(dict_entries_to_prompt(&entries), Some("Commit, Merge".into()));
     }
 
     // ── classify_error ────────────────────────────────────────────────────────

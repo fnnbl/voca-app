@@ -1,23 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { useShortcutCapture, sortShortcut } from '../../hooks/useShortcutCapture'
+import { formatShortcut } from '../../shortcut/format'
 
 interface ShortcutRecorderProps {
   value: string
   onChange: (shortcut: string) => void
-}
-
-function displayLabel(key: string): string {
-  const isMac = navigator.platform.includes('Mac')
-  if (key === 'Super') return isMac ? '⌘' : '⊞'
-  if (key === 'Alt')   return isMac ? '⌥' : 'Alt'
-  if (key === 'Ctrl')  return 'Ctrl'
-  if (key === 'Shift') return 'Shift'
-  return key
-}
-
-function formatShortcut(shortcut: string): string {
-  if (!shortcut) return ''
-  return shortcut.split('+').map(displayLabel).join(' + ')
 }
 
 export function ShortcutRecorder({ value, onChange }: ShortcutRecorderProps) {

@@ -4,7 +4,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-shell'
 import { SettingRow } from '../../components/settings/SettingRow'
-import type { Settings } from '../../types'
+import { TRANSCRIPTION_LANGUAGES } from '../../types'
+import type { Settings, TranscriptionLanguage } from '../../types'
 
 interface Props {
   settings: Settings
@@ -168,6 +169,15 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
     onChange({ ...settings, transcription: { ...settings.transcription, mode } })
   }
 
+  function handleLanguageChange(language: TranscriptionLanguage) {
+    onChange({ ...settings, transcription: { ...settings.transcription, language } })
+  }
+
+  function toggleMuteOtherAudio() {
+    const next = !(settings.transcription.muteOtherAudio ?? true)
+    onChange({ ...settings, transcription: { ...settings.transcription, muteOtherAudio: next } })
+  }
+
   function handleModelSizeChange(size: ModelSize) {
     onChange({ ...settings, transcription: { ...settings.transcription, localModelSize: size } })
   }
@@ -226,6 +236,35 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
             </button>
           ))}
         </div>
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.transcription.language')}
+        description={t('settings.transcription.languageDescription')}
+      >
+        <select
+          value={settings.transcription.language ?? 'auto'}
+          onChange={(e) => handleLanguageChange(e.target.value as TranscriptionLanguage)}
+          className="w-48 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg text-text focus:outline-none focus:border-accent"
+        >
+          {TRANSCRIPTION_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>
+              {t(`settings.transcription.languageOption.${lang}`)}
+            </option>
+          ))}
+        </select>
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.transcription.muteOtherAudio')}
+        description={t('settings.transcription.muteOtherAudioDescription')}
+      >
+        <button
+          role="switch"
+          aria-checked={settings.transcription.muteOtherAudio ?? true}
+          onClick={toggleMuteOtherAudio}
+          className={`v-switch${(settings.transcription.muteOtherAudio ?? true) ? ' on' : ''}`}
+        />
       </SettingRow>
 
       {!isLocal && (

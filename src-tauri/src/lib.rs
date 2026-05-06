@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod audio;
+pub mod audio_ducking;
 pub mod clipboard;
 pub mod commands;
 pub mod errors;
@@ -7,7 +8,9 @@ pub mod hotkey;
 pub mod keychain;
 pub mod local_transcription;
 pub mod shortcut;
+pub mod stats;
 pub mod storage;
+pub mod target_app;
 pub mod transcription;
 
 use std::sync::{Arc, Mutex};
@@ -15,7 +18,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    Manager,
+    Manager, WindowEvent,
 };
 
 use audio::{AudioBuffer, AudioRecordingState};
@@ -38,6 +41,14 @@ pub struct LastPressTime(pub Mutex<Option<std::time::Instant>>);
 pub struct LastTapTime(pub Mutex<Option<std::time::Instant>>);
 pub struct IsToggleSession(pub Mutex<bool>);
 pub struct SelectedAudioDevice(pub Mutex<Option<String>>);
+pub struct AudioDuckingState(pub Mutex<Option<audio_ducking::DuckingGuard>>);
+
+/// Blocks recording + pill visibility during early onboarding steps.
+/// `false` = gated (ignore shortcut presses, pill window hidden);
+/// `true` = normal operation. Set at startup from `general.onboardingCompleted`,
+/// flipped to `true` by the frontend when the onboarding Test step mounts
+/// (or when onboarding completes by any path).
+pub struct RecordingGate(pub Mutex<bool>);
 pub struct DownloadCancelFlag(pub Arc<Mutex<bool>>);
 pub struct HotkeyStateWrapper(pub std::sync::Arc<hotkey::HotkeyState>);
 
@@ -50,6 +61,11 @@ pub struct RecordingStateChangedPayload {
 pub struct ErrorPayload {
     pub code: String,
     pub message: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct AudioLevelPayload {
+    pub level: f32,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -79,6 +95,8 @@ pub fn run() {
         .manage(LastTapTime(Mutex::new(None)))
         .manage(IsToggleSession(Mutex::new(false)))
         .manage(SelectedAudioDevice(Mutex::new(None)))
+        .manage(AudioDuckingState(Mutex::new(None)))
+        .manage(RecordingGate(Mutex::new(true))) // default; setup() reconciles from settings
         .manage(DownloadCancelFlag(Arc::new(Mutex::new(false))))
         .manage(HotkeyStateWrapper(Arc::new(hotkey::HotkeyState::new())))
         .setup(|app| {
@@ -104,6 +122,20 @@ pub fn run() {
                 hotkey::start(hotkey_state, handle.clone());
             }
 
+            // Reconcile the RecordingGate + pill visibility against persisted
+            // onboarding state. On first-run installs (onboardingCompleted =
+            // false) we gate everything until the user reaches the Test step;
+            // on every subsequent launch the pill is normal from the first
+            // frame.
+            let onboarding_done = {
+                let handle = app.handle();
+                let settings = crate::storage::load(handle).unwrap_or_default();
+                settings["general"]["onboardingCompleted"]
+                    .as_bool()
+                    .unwrap_or(false)
+            };
+            *app.state::<RecordingGate>().0.lock().unwrap() = onboarding_done;
+
             if let Some(status_bar) = app.get_webview_window("status-bar") {
                 // Prefer primary_monitor for reliable startup positioning;
                 // the monitor's .position() offset is added so multi-monitor
@@ -116,6 +148,22 @@ pub fn run() {
                 if let Some(m) = monitor {
                     position_status_bar(&status_bar, &m);
                 }
+                // Click-through so the pill never blocks apps underneath.
+                // The frontend also calls this on mount, but that Ignore
+                // state is not persistent on Windows — it gets dropped on
+                // every hide/show cycle. Setting it here at window-setup
+                // time closes the race where the pill is already visible
+                // before the webview JS has finished mounting.
+                let _ = status_bar.set_ignore_cursor_events(true);
+                // Topmost is similarly non-persistent on Windows: the
+                // tauri.conf.json `alwaysOnTop` flag sets the initial
+                // HWND_TOPMOST style, but hide/show cycles can drop it,
+                // leaving the pill behind any normal window. Re-asserting
+                // here matches the click-through belt-and-suspenders.
+                let _ = status_bar.set_always_on_top(true);
+                if !onboarding_done {
+                    let _ = status_bar.hide();
+                }
             }
 
             if let Some(main) = app.get_webview_window("main") {
@@ -125,6 +173,18 @@ pub fn run() {
                 ) {
                     let _ = main.set_icon(icon);
                 }
+
+                // Hide on close instead of destroying the window, so the tray
+                // icon can bring it back. Without this the webview is torn down
+                // and `get_webview_window("main")` returns None.
+                let main_clone = main.clone();
+                main.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        let _ = main_clone.hide();
+                        api.prevent_close();
+                    }
+                });
+
                 let _ = main.show();
                 let _ = main.set_focus();
             }
@@ -159,15 +219,21 @@ pub fn run() {
             commands::delete_ai_provider_key,
             commands::get_dictionary,
             commands::save_dictionary,
+            commands::seed_dictionary_with_use_cases,
             commands::get_snippets,
             commands::save_snippets,
+            commands::get_fillers,
+            commands::save_fillers,
             commands::get_autostart,
             commands::set_autostart,
             commands::get_history,
             commands::clear_history,
+            commands::get_stats,
             commands::set_window_theme,
             commands::list_audio_devices,
             commands::set_audio_device,
+            commands::unlock_recording,
+            commands::show_pill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -205,21 +271,46 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
 
     let menu = Menu::with_items(app, &[&settings_item, &separator, &quit_item])?;
 
-    TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+    let initial_icon = Image::from_bytes(include_bytes!("../icons/tray-idle.png"))
+        .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+
+    let builder = TrayIconBuilder::with_id("main")
+        .icon(initial_icon)
         .menu(&menu)
         .tooltip("VOCA")
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "settings" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
+            "settings" => show_main_window(app),
             "quit" => app.exit(0),
             _ => {}
-        })
-        .build(app)?;
+        });
+
+    // Windows/Linux convention: left-click the tray icon to reveal the app.
+    // On macOS the menu-bar extra should open the menu on click, so we leave
+    // the default behaviour there.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        });
+
+    builder.build(app)?;
 
     Ok(())
+}
+
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 }

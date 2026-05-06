@@ -1,17 +1,23 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { version as appVersion } from '../../package.json'
 import { useAppStore } from '../stores/appStore'
 import { GeneralSettings } from './settings/GeneralSettings'
 import { TranscriptionSettings } from './settings/TranscriptionSettings'
 import { AiSettings } from './settings/AiSettings'
 import { SnippetsSettings } from './settings/SnippetsSettings'
 import { DictionarySettings } from './settings/DictionarySettings'
+import { FillersSettings } from './settings/FillersSettings'
 import { HistoryPage } from './HistoryPage'
 import { StatsPage } from './StatsPage'
+import { AboutPage } from './AboutPage'
+import { LegalPage } from './LegalPage'
 import { DEFAULT_SHORTCUT } from '../types'
 import type { Settings } from '../types'
+import { formatShortcut } from '../shortcut/format'
 
-type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'general'
+type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general' | 'about' | 'legal'
+type LegalTab = 'privacy' | 'terms'
 
 interface Props {
   settings: Settings
@@ -21,7 +27,13 @@ interface Props {
 export function SettingsPage({ settings, onSave }: Props) {
   const { t } = useTranslation()
   const [active, setActive] = useState<NavId>('history')
+  const [legalTab, setLegalTab] = useState<LegalTab>('privacy')
   const error = useAppStore((s) => s.error)
+
+  function openLegal(tab: LegalTab) {
+    setLegalTab(tab)
+    setActive('legal')
+  }
 
   function handleChange(updated: Settings) {
     onSave(updated).catch(console.error)
@@ -39,7 +51,7 @@ export function SettingsPage({ settings, onSave }: Props) {
         <div className="shell-brand">
           <VocaLogoMark size={22} />
           <span className="mark">VOCA</span>
-          <span className="version">v0.3</span>
+          <span className="version">v{appVersion.split('.').slice(0, 2).join('.')}</span>
         </div>
 
         <nav className="shell-nav">
@@ -64,15 +76,21 @@ export function SettingsPage({ settings, onSave }: Props) {
           <NavItem id="dictionary" active={active} onClick={setActive} icon={<BookIcon />}>
             {t('settings.nav.dictionary')}
           </NavItem>
+          <NavItem id="fillers" active={active} onClick={setActive} icon={<EraserIcon />}>
+            {t('settings.nav.fillers')}
+          </NavItem>
           <NavItem id="general" active={active} onClick={setActive} icon={<SettingsIcon />}>
             {t('settings.nav.general')}
+          </NavItem>
+          <NavItem id="about" active={active} onClick={setActive} icon={<InfoIcon />} variant="bottom">
+            {t('settings.nav.about', 'About')}
           </NavItem>
         </nav>
 
         <div className="shell-foot">
           <span className="status-dot" />
           <span className="lbl">Bereit</span>
-          <span className="shortcut-badge">{shortcutKey}</span>
+          <span className="shortcut-badge">{formatShortcut(shortcutKey)}</span>
         </div>
       </aside>
 
@@ -89,7 +107,10 @@ export function SettingsPage({ settings, onSave }: Props) {
           {active === 'ai'            && <AiSettings settings={settings} onChange={handleChange} />}
           {active === 'snippets'      && <SnippetsSettings />}
           {active === 'dictionary'    && <DictionarySettings />}
+          {active === 'fillers'       && <FillersSettings settings={settings} onChange={handleChange} />}
           {active === 'general'       && <GeneralSettings settings={settings} onChange={handleChange} />}
+          {active === 'about'         && <AboutPage onOpenLegal={openLegal} />}
+          {active === 'legal'         && <LegalPage initialTab={legalTab} />}
         </div>
       </main>
     </div>
@@ -97,7 +118,7 @@ export function SettingsPage({ settings, onSave }: Props) {
 }
 
 function NavItem({
-  id, active, onClick, icon, kbd, children,
+  id, active, onClick, icon, kbd, children, variant,
 }: {
   id: NavId
   active: NavId
@@ -105,10 +126,12 @@ function NavItem({
   icon: ReactNode
   kbd?: string
   children: ReactNode
+  variant?: 'bottom'
 }) {
+  const variantClass = variant === 'bottom' ? ' is-bottom' : ''
   return (
     <button
-      className={`shell-nav-item${active === id ? ' is-active' : ''}`}
+      className={`shell-nav-item${active === id ? ' is-active' : ''}${variantClass}`}
       onClick={() => onClick(id)}
     >
       {icon}
@@ -147,6 +170,12 @@ function TextIcon() {
 function BookIcon() {
   return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 3v10l2-1h9V3zM4.5 3v9"/></svg>
 }
+function EraserIcon() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 11.5l-1 1a1 1 0 0 0 0 1.4l0.6 0.6a1 1 0 0 0 1.4 0l7-7a1 1 0 0 0 0-1.4L9 3a1 1 0 0 0-1.4 0L3.5 7.1z"/><path d="M6 14h8"/></svg>
+}
 function SettingsIcon() {
   return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"><circle cx="8" cy="8" r="1.5"/><path d="M8 2v1.5M8 12.5V14M13 8h-1.5M4.5 8H3M11.5 4.5l-1 1M5.5 10.5l-1 1M11.5 11.5l-1-1M5.5 5.5l-1-1"/></svg>
+}
+function InfoIcon() {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v3.5M8 5v0.25"/></svg>
 }

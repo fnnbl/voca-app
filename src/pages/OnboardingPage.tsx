@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
+import { emit, listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open } from '@tauri-apps/plugin-shell'
 import { useShortcutCapture, sortShortcut } from '../hooks/useShortcutCapture'
-import { DEFAULT_SHORTCUT } from '../types'
-import type { Settings } from '../types'
+import { DEFAULT_SHORTCUT, SUPPORTED_UI_LANGUAGES } from '../types'
+import type { Settings, UiLanguage } from '../types'
+import { formatShortcutKey } from '../shortcut/format'
+
+const LANGUAGE_LABELS: Record<UiLanguage, string> = {
+  de: 'Deutsch',
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  pt: 'Português',
+  it: 'Italiano',
+}
 
 interface Props {
   settings: Settings
@@ -14,21 +26,21 @@ interface Props {
 type CloudProvider = Settings['transcription']['cloudProvider']
 type AiProvider = Settings['aiEnhancement']['provider']
 
-const CLOUD_PROVIDERS: { id: CloudProvider; label: string; meta: string; free: boolean; keyLink?: string; placeholder: string }[] = [
-  { id: 'groq',       label: 'Groq',       meta: 'whisper turbo · free', free: true,  keyLink: 'https://console.groq.com/keys',                    placeholder: 'gsk_...' },
-  { id: 'openai',     label: 'OpenAI',     meta: 'whisper-1 · paid',      free: false, keyLink: 'https://platform.openai.com/api-keys',             placeholder: 'sk-...' },
-  { id: 'deepgram',   label: 'Deepgram',   meta: 'nova-3 · free',         free: true,  keyLink: 'https://console.deepgram.com',                     placeholder: 'deepgram key...' },
-  { id: 'elevenlabs', label: 'ElevenLabs', meta: 'scribe-v1 · paid',      free: false, keyLink: 'https://elevenlabs.io/app/settings/api-keys',      placeholder: 'el_...' },
-  { id: 'gemini',     label: 'Gemini',     meta: 'google · free',         free: true,  keyLink: 'https://aistudio.google.com/app/apikey',           placeholder: 'AIza...' },
-  { id: 'custom',     label: 'Custom',     meta: 'eigener endpoint',      free: false, placeholder: 'API key...' },
+const CLOUD_PROVIDERS: { id: CloudProvider; label: string; free: boolean; keyLink?: string; placeholder: string }[] = [
+  { id: 'groq',       label: 'Groq',       free: true,  keyLink: 'https://console.groq.com/keys',                    placeholder: 'gsk_...' },
+  { id: 'openai',     label: 'OpenAI',     free: false, keyLink: 'https://platform.openai.com/api-keys',             placeholder: 'sk-...' },
+  { id: 'deepgram',   label: 'Deepgram',   free: true,  keyLink: 'https://console.deepgram.com',                     placeholder: 'deepgram key...' },
+  { id: 'elevenlabs', label: 'ElevenLabs', free: false, keyLink: 'https://elevenlabs.io/app/settings/api-keys',      placeholder: 'el_...' },
+  { id: 'gemini',     label: 'Gemini',     free: true,  keyLink: 'https://aistudio.google.com/app/apikey',           placeholder: 'AIza...' },
+  { id: 'custom',     label: 'Custom',     free: false, placeholder: 'API key...' },
 ]
 
-const AI_PROVIDERS: { id: AiProvider; label: string; meta: string; free: boolean; keyLink?: string; placeholder: string }[] = [
-  { id: 'anthropic', label: 'Anthropic',  meta: 'claude haiku · paid',    free: false, keyLink: 'https://console.anthropic.com/settings/keys', placeholder: 'sk-ant-...' },
-  { id: 'groq',      label: 'Groq',       meta: 'llama 3.3 · free',       free: true,  keyLink: 'https://console.groq.com/keys',               placeholder: 'gsk_...' },
-  { id: 'openai',    label: 'OpenAI',     meta: 'gpt-4o · paid',          free: false, keyLink: 'https://platform.openai.com/api-keys',        placeholder: 'sk-...' },
-  { id: 'gemini',    label: 'Gemini',     meta: '2.0 flash · free',       free: true,  keyLink: 'https://aistudio.google.com/app/apikey',      placeholder: 'AIza...' },
-  { id: 'ollama',    label: 'Ollama',     meta: 'lokal · free',           free: true,  placeholder: '' },
+const AI_PROVIDERS: { id: AiProvider; label: string; free: boolean; keyLink?: string; placeholder: string }[] = [
+  { id: 'anthropic', label: 'Anthropic',  free: false, keyLink: 'https://console.anthropic.com/settings/keys', placeholder: 'sk-ant-...' },
+  { id: 'groq',      label: 'Groq',       free: true,  keyLink: 'https://console.groq.com/keys',               placeholder: 'gsk_...' },
+  { id: 'openai',    label: 'OpenAI',     free: false, keyLink: 'https://platform.openai.com/api-keys',        placeholder: 'sk-...' },
+  { id: 'gemini',    label: 'Gemini',     free: true,  keyLink: 'https://aistudio.google.com/app/apikey',      placeholder: 'AIza...' },
+  { id: 'ollama',    label: 'Ollama',     free: true,  placeholder: '' },
 ]
 
 type ModelSize = 'tiny' | 'base' | 'small' | 'medium'
@@ -42,10 +54,14 @@ const MODEL_SIZES: { value: ModelSize; label: string; approxMb: number }[] = [
   { value: 'medium', label: 'Medium', approxMb: 1500 },
 ]
 
-const STEPS = ['welcome', 'transcription', 'shortcut', 'test', 'ai', 'done'] as const
+const STEPS = ['welcome', 'transcription', 'shortcut', 'useCase', 'test', 'ai', 'done'] as const
 type Step = typeof STEPS[number]
 
+type UseCaseId = 'dev' | 'pm' | 'content' | 'design' | 'business'
+const USE_CASE_IDS: UseCaseId[] = ['dev', 'pm', 'content', 'design', 'business']
+
 export function OnboardingPage({ settings, onComplete }: Props) {
+  const { t } = useTranslation()
   const [step, setStep] = useState<Step>('welcome')
   const [local, setLocal] = useState<Settings>(settings)
 
@@ -67,6 +83,17 @@ export function OnboardingPage({ settings, onComplete }: Props) {
     await onComplete({ ...updated, general: { ...updated.general, onboardingCompleted: true } })
   }
 
+  // Persist a language change immediately without completing onboarding.
+  // Piggybacks on the same onComplete (= save) pipe but keeps
+  // onboardingCompleted unchanged so the flow doesn't collapse mid-step,
+  // and the appStore update causes App.tsx to call i18n.changeLanguage
+  // so the rest of the onboarding re-renders in the new language.
+  async function persistLanguage(lang: UiLanguage) {
+    const updated: Settings = { ...local, general: { ...local.general, language: lang } }
+    setLocal(updated)
+    await onComplete(updated)
+  }
+
   function next() { setStep(STEPS[Math.min(stepIndex + 1, STEPS.length - 1)] as Step) }
   function back() { setStep(STEPS[Math.max(stepIndex - 1, 0)] as Step) }
 
@@ -86,20 +113,21 @@ export function OnboardingPage({ settings, onComplete }: Props) {
               />
             )
           })}
-          <button className="onb-skip" onClick={() => finish(local)}>skip</button>
+          <button className="onb-skip" onClick={() => finish(local)}>{t('onboarding.footer.skip', 'skip')}</button>
         </div>
       )}
 
-      {step === 'welcome'      && <StepWelcome onNext={next} />}
+      {step === 'welcome'      && <StepWelcome settings={local} onLanguageChange={persistLanguage} onNext={next} />}
       {step === 'transcription' && <StepTranscription settings={local} onChange={setLocal} onNext={next} />}
       {step === 'shortcut'     && <StepShortcut settings={local} onChange={setLocal} onNext={next} />}
+      {step === 'useCase'      && <StepUseCase onNext={next} />}
       {step === 'test'         && <StepTest onNext={next} />}
       {step === 'ai'           && <StepAi settings={local} onChange={setLocal} onNext={next} />}
       {step === 'done'         && <StepFinale settings={local} onFinish={finish} />}
 
       {showFoot && (
         <div className="onb-foot">
-          <button className="onb-back" onClick={back}><BackIcon /> zurück</button>
+          <button className="onb-back" onClick={back}><BackIcon /> {t('onboarding.footer.back', 'zurück')}</button>
           <div className="onb-counter">{stepIndex} / {totalVisible - 1}</div>
         </div>
       )}
@@ -109,25 +137,43 @@ export function OnboardingPage({ settings, onComplete }: Props) {
 
 /* ── Welcome ─────────────────────────────────────────────────────────────── */
 
-function StepWelcome({ onNext }: { onNext: () => void }) {
+function StepWelcome({
+  settings, onLanguageChange, onNext,
+}: {
+  settings: Settings
+  onLanguageChange: (lang: UiLanguage) => void | Promise<void>
+  onNext: () => void
+}) {
+  const { t } = useTranslation()
   return (
     <div className="onb-stage" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <div className="onb-lang-picker">
+        <select
+          aria-label={t('onboarding.welcome.languageLabel', 'Sprache')}
+          value={settings.general.language}
+          onChange={(e) => onLanguageChange(e.target.value as UiLanguage)}
+        >
+          {SUPPORTED_UI_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
+          ))}
+        </select>
+      </div>
       <div className="ember-mark" />
       <div style={{ marginBottom: 36 }}>
         <WelcomeLogoMark size={132} />
       </div>
-      <div className="onb-eyebrow">willkommen bei</div>
+      <div className="onb-eyebrow">{t('onboarding.welcome.eyebrow', 'willkommen bei')}</div>
       <h1 className="onb-title" style={{ fontSize: 88, marginBottom: 24 }}>
         <span className="v-wordmark" style={{ fontSize: 'inherit' }}>VOCA</span>
       </h1>
-      <p className="onb-lede" style={{ fontSize: 17, maxWidth: '44ch' }}>
-        Sprich — und dein Gerät schreibt. Kein Fenster vor der Nase, kein Dialog. Nur eine ruhige Pille am unteren Rand.
+      <p className="onb-lede" style={{ fontSize: 17, maxWidth: '60ch' }}>
+        {t('onboarding.welcome.lede', 'Sprich - und dein Text erscheint dort, wo du tippst.')}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         <button className="v-btn accent" onClick={onNext}>
-          Einrichten <ChevronIcon />
+          {t('onboarding.welcome.cta', 'Einrichten')} <ChevronIcon />
         </button>
-        <span className="v-meta">dauert keine 90 sekunden.</span>
+        <span className="v-meta">{t('onboarding.welcome.meta', 'dauert keine 90 sekunden')}</span>
       </div>
     </div>
   )
@@ -138,11 +184,13 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
 function StepTranscription({
   settings, onChange, onNext,
 }: { settings: Settings; onChange: (s: Settings) => void; onNext: () => void }) {
+  const { t } = useTranslation()
   const mode = settings.transcription.mode
   const provider = settings.transcription.cloudProvider ?? 'groq'
   const provMeta = CLOUD_PROVIDERS.find((p) => p.id === provider) ?? CLOUD_PROVIDERS[0]
   const [apiKey, setApiKey] = useState('')
   const [showOffline, setShowOffline] = useState(mode === 'local')
+  const [keyError, setKeyError] = useState<string | null>(null)
   const [modelStatuses, setModelStatuses] = useState<Record<ModelSize, ModelStatus | null>>({ tiny: null, base: null, small: null, medium: null })
   const [downloading, setDownloading] = useState<ModelSize | null>(null)
   const [progress, setProgress] = useState<DownloadProgress | null>(null)
@@ -167,7 +215,7 @@ function StepTranscription({
     setShowOffline(on)
     onChange({ ...settings, transcription: { ...settings.transcription, mode: on ? 'local' : 'cloud' } })
   }
-  async function saveKey() { if (apiKey) await invoke('save_transcription_key', { provider, value: apiKey }) }
+  async function saveKey() { if (apiKey) await invoke('save_transcription_key', { provider, value: apiKey.trim() }) }
   async function handleDownload(size: ModelSize) {
     setDownloading(size); setProgress(null)
     try {
@@ -180,16 +228,29 @@ function StepTranscription({
     try { await invoke('delete_model', { size }); setModelStatuses((prev) => ({ ...prev, [size]: { downloaded: false, size_bytes: 0 } })) } catch { /* ignore */ }
   }
   async function handleCancel() { try { await invoke('cancel_model_download') } catch { /* ignore */ } }
-  async function handleNext() { if (mode === 'cloud') await saveKey(); onNext() }
+  async function handleNext() {
+    if (mode === 'cloud') {
+      const err = validateKeyFormat(provider, apiKey)
+      if (err) { setKeyError(err); return }
+      setKeyError(null)
+      await saveKey()
+    }
+    onNext()
+  }
 
   const otherCloud = CLOUD_PROVIDERS.filter((p) => p.id !== 'groq')
+  const providerLabel = (id: string) => CLOUD_PROVIDERS.find((p) => p.id === id)?.label ?? id
 
   return (
     <div className="onb-stage">
-      <div className="onb-eyebrow">schritt 01 · transkription</div>
-      <h1 className="onb-title">Wo soll <em>gehört</em> werden?</h1>
+      <div className="onb-eyebrow">{t('onboarding.transcription.eyebrow', 'schritt 01 · transkription')}</div>
+      <h1 className="onb-title">
+        <Trans i18nKey="onboarding.transcription.title" components={{ em: <em /> }}>
+          Cloud oder <em>lokal</em>?
+        </Trans>
+      </h1>
       <p className="onb-lede">
-        VOCA unterstützt schnelle Cloud-Modelle und lokale Offline-Modelle. Du kannst jederzeit wechseln.
+        {t('onboarding.transcription.lede', 'VOCA arbeitet mit schnellen Cloud-Diensten oder lokal auf deinem Rechner - vollständig offline. Die Entscheidung lässt sich jederzeit ändern.')}
       </p>
 
       {/* Provider grid */}
@@ -198,9 +259,9 @@ function StepTranscription({
           className={`prov-card featured${!showOffline && provider === 'groq' ? ' is-active' : ''}`}
           onClick={() => selectProvider('groq')}
         >
-          <span className="prov-badge">empfohlen</span>
+          <span className="prov-badge">{t('onboarding.transcription.recommended', 'empfohlen')}</span>
           <div className="prov-name">Groq</div>
-          <div className="prov-desc">Whisper large-v3-turbo — der schnellste Pfad. Kostenlose Stufe reicht für den Alltag.</div>
+          <div className="prov-desc">{t('onboarding.transcription.providers.groq.desc')}</div>
         </button>
         {otherCloud.map((p) => (
           <button
@@ -209,35 +270,44 @@ function StepTranscription({
             onClick={() => selectProvider(p.id)}
           >
             <div className="prov-name">{p.label}</div>
-            <div className={`prov-meta${p.free ? ' free' : ''}`}>{p.meta}</div>
+            <div className={`prov-meta${p.free ? ' free' : ''}`}>{t(`onboarding.transcription.providers.${p.id}.meta`)}</div>
+            <div className="prov-desc">{t(`onboarding.transcription.providers.${p.id}.desc`)}</div>
           </button>
         ))}
         <button
           className={`prov-card${showOffline ? ' is-active' : ''}`}
           onClick={() => setOffline(!showOffline)}
         >
-          <div className="prov-name">Offline</div>
-          <div className="prov-meta free">whisper.cpp · lokal</div>
+          <div className="prov-name">{t('onboarding.transcription.providers.offline.name', 'Offline')}</div>
+          <div className="prov-meta free">{t('onboarding.transcription.providers.offline.meta', 'whisper.cpp · lokal')}</div>
+          <div className="prov-desc">{t('onboarding.transcription.providers.offline.desc')}</div>
         </button>
       </div>
 
       {/* API key or offline models */}
       {!showOffline && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-          <input
-            className="v-input"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={provMeta.placeholder}
-            style={{ flex: 1, maxWidth: 360 }}
-          />
-          {provMeta.keyLink && (
-            <button className="v-btn ghost" onClick={() => open(provMeta.keyLink!)}>
-              <ExternalIcon /> schlüssel holen
-            </button>
+        <>
+          <div style={{ display: 'flex', gap: 10, marginBottom: keyError ? 8 : 20 }}>
+            <input
+              className="v-input"
+              type="password"
+              value={apiKey}
+              onChange={(e) => { setApiKey(e.target.value); if (keyError) setKeyError(null) }}
+              placeholder={provMeta.placeholder}
+              style={{ flex: 1, maxWidth: 360 }}
+            />
+            {provMeta.keyLink && (
+              <button className="v-btn ghost" onClick={() => open(provMeta.keyLink!)}>
+                <ExternalIcon /> {t('onboarding.transcription.getKey', 'Schlüssel erstellen')}
+              </button>
+            )}
+          </div>
+          {keyError && (
+            <div className="onb-err" style={{ marginBottom: 20 }}>
+              {t('errors.apiKeyFormat', { provider: providerLabel(provider) })}
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {showOffline && (
@@ -256,22 +326,23 @@ function StepTranscription({
                 <span className="radio" />
                 <span className="model-name">{label}</span>
                 <span className="model-size">~{approxMb < 1000 ? `${approxMb} MB` : `${(approxMb / 1000).toFixed(1)} GB`}</span>
+                <span className="model-desc">{t(`onboarding.transcription.models.${value}`)}</span>
                 <div className="model-action">
                   {isDownloading && progress ? (
                     <>
                       <span className="v-meta">{Math.round((progress.downloaded_bytes / progress.total_bytes) * 100)}%</span>
                       <div className="pbar-wrap"><span className="pbar-fill" style={{ width: `${(progress.downloaded_bytes / progress.total_bytes) * 100}%` }} /></div>
-                      <button className="v-btn ghost sm" onClick={(e) => { e.stopPropagation(); handleCancel() }}>abbrechen</button>
+                      <button className="v-btn ghost sm" onClick={(e) => { e.stopPropagation(); handleCancel() }}>{t('onboarding.transcription.cancel', 'abbrechen')}</button>
                     </>
                   ) : isDownloaded ? (
                     <>
                       <span className="model-status-dot" />
-                      <span className="v-meta">bereit</span>
+                      <span className="v-meta">{t('onboarding.transcription.ready', 'bereit')}</span>
                       <button className="v-btn ghost sm" onClick={(e) => { e.stopPropagation(); handleDelete(value) }}><TrashIcon /></button>
                     </>
                   ) : (
                     <button className="v-btn ghost sm" disabled={downloading !== null} onClick={(e) => { e.stopPropagation(); handleDownload(value) }}>
-                      <DownloadIcon /> laden
+                      <DownloadIcon /> {t('onboarding.transcription.download', 'laden')}
                     </button>
                   )}
                 </div>
@@ -281,9 +352,22 @@ function StepTranscription({
         </div>
       )}
 
-      <button className="v-btn accent" onClick={handleNext}>Weiter <ChevronIcon /></button>
+      <button className="v-btn accent" onClick={handleNext}>{t('onboarding.transcription.next', 'Weiter')} <ChevronIcon /></button>
     </div>
   )
+}
+
+function validateKeyFormat(provider: string, key: string): 'format' | null {
+  const trimmed = key.trim()
+  if (!trimmed) return null
+  const expected =
+    provider === 'anthropic' ? 'sk-ant-' :
+    provider === 'groq'      ? 'gsk_'    :
+    provider === 'openai'    ? 'sk-'     :
+    provider === 'gemini'    ? 'AIza'    :
+    null
+  if (expected && !trimmed.startsWith(expected)) return 'format'
+  return null
 }
 
 /* ── Shortcut ────────────────────────────────────────────────────────────── */
@@ -291,6 +375,7 @@ function StepTranscription({
 function StepShortcut({
   settings, onChange, onNext,
 }: { settings: Settings; onChange: (s: Settings) => void; onNext: () => void }) {
+  const { t } = useTranslation()
   const currentKey = settings.shortcuts.key || DEFAULT_SHORTCUT
 
   async function handleKeyChange(newShortcut: string) {
@@ -300,10 +385,14 @@ function StepShortcut({
 
   return (
     <div className="onb-stage">
-      <div className="onb-eyebrow">schritt 02 · shortcut</div>
-      <h1 className="onb-title">Drück, halt, <em>sprich.</em></h1>
+      <div className="onb-eyebrow">{t('onboarding.shortcut.eyebrow', 'schritt 02 · tastenkürzel')}</div>
+      <h1 className="onb-title">
+        <Trans i18nKey="onboarding.shortcut.title" components={{ em: <em /> }}>
+          Eine Taste. <em>Ein Gedanke.</em>
+        </Trans>
+      </h1>
       <p className="onb-lede">
-        Halt die Tastenkombi gedrückt, während du sprichst. Loslassen transkribiert. Klick das Feld zum Neubelegen.
+        {t('onboarding.shortcut.lede', 'Halte die Tastenkombination gedrückt, solange du sprichst. Sobald du loslässt, wird transkribiert. Zum Neubelegen einfach auf das Feld klicken.')}
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
@@ -313,14 +402,110 @@ function StepShortcut({
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', marginBottom: 28 }}>
         <div style={{ width: 3, background: 'var(--v-accent)', alignSelf: 'stretch', borderRadius: 2, flexShrink: 0 }} />
         <div>
-          <div className="v-label" style={{ marginBottom: 4 }}>tipp</div>
+          <div className="v-label" style={{ marginBottom: 4 }}>{t('onboarding.shortcut.tipLabel', 'tipp')}</div>
           <p style={{ fontSize: 13.5, color: 'var(--v-ink-2)', maxWidth: '50ch', lineHeight: 1.6, fontFamily: 'var(--f-ui)' }}>
-            Press-&amp;-hold fühlt sich natürlicher an als Toggle — du weißt jederzeit, was aufgenommen wird.
+            {t('onboarding.shortcut.tipBody', 'Gedrückt halten fühlt sich natürlicher an als ein An-Aus-Schalter - du hast jederzeit Kontrolle darüber, was aufgenommen wird.')}
           </p>
         </div>
       </div>
 
-      <button className="v-btn accent" onClick={onNext}>Weiter <ChevronIcon /></button>
+      <button className="v-btn accent" onClick={onNext}>{t('onboarding.shortcut.next', 'Weiter')} <ChevronIcon /></button>
+    </div>
+  )
+}
+
+/* ── Use-case (dictionary seeding) ──────────────────────────────────────── */
+
+function StepUseCase({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation()
+  const [selected, setSelected] = useState<Set<UseCaseId>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
+
+  function toggle(id: UseCaseId) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleNext() {
+    if (selected.size === 0) {
+      onNext()
+      return
+    }
+    setSubmitting(true)
+    try {
+      await invoke('seed_dictionary_with_use_cases', { useCases: Array.from(selected) })
+    } catch (e) {
+      console.error('dictionary seeding failed:', e)
+    } finally {
+      setSubmitting(false)
+      onNext()
+    }
+  }
+
+  return (
+    <div className="onb-stage">
+      <div className="onb-eyebrow">{t('onboarding.useCase.eyebrow', 'schritt 03 · fachbereich')}</div>
+      <h1 className="onb-title">
+        <Trans i18nKey="onboarding.useCase.title" components={{ em: <em /> }}>
+          Worüber sprichst du am <em>meisten</em>?
+        </Trans>
+      </h1>
+      <p className="onb-lede">
+        {t('onboarding.useCase.lede', 'Damit Fachbegriffe, Tool-Namen und Abkürzungen sauber erkannt werden, hilft VOCA ein wenig Kontext. Wähl einfach, was auf dich zutrifft - mehrere gehen. Jederzeit änderbar.')}
+      </p>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 10,
+          marginBottom: 28,
+          width: '100%',
+          maxWidth: 720,
+        }}
+      >
+        {USE_CASE_IDS.map((id) => {
+          const isOn = selected.has(id)
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => toggle(id)}
+              className={`prov-card${isOn ? ' is-active' : ''}`}
+              style={{ textAlign: 'left' }}
+            >
+              <div className="prov-name">
+                {t(`onboarding.useCase.category.${id}.label`)}
+              </div>
+              <div className="prov-desc">
+                {t(`onboarding.useCase.category.${id}.description`)}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <button
+          className="v-btn accent"
+          onClick={handleNext}
+          disabled={submitting}
+        >
+          {selected.size > 0
+            ? t('onboarding.useCase.next', 'Weiter')
+            : t('onboarding.useCase.skip', 'Überspringen')}
+          <ChevronIcon />
+        </button>
+        {selected.size > 0 && (
+          <span className="v-meta">
+            {t('onboarding.useCase.selectionHint', { count: selected.size, defaultValue: '{{count}} ausgewählt' })}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -330,6 +515,7 @@ function StepShortcut({
 type TestAppState = 'idle' | 'recording' | 'processing' | 'inserting' | 'error'
 
 function StepTest({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation()
   const [appState, setAppState] = useState<TestAppState>('idle')
   const [text, setText] = useState('')
 
@@ -350,28 +536,67 @@ function StepTest({ onNext }: { onNext: () => void }) {
     }
   }, [])
 
+  // First-meeting ceremony: unlock the shortcut, reveal the pill, and send
+  // the localised bubble text along so the pill window doesn't need its own
+  // i18n state. Only runs once per onboarding — the effect's empty deps
+  // mean re-entering the step (e.g. via back) would re-fire, but the pill's
+  // animations are one-shot by design and StepTest is rarely revisited.
+  useEffect(() => {
+    (async () => {
+      try {
+        // Bring the onboarding window to focus so the DOM shortcut fallback
+        // (`useShortcutFallback`) receives the key events for the first
+        // recording attempt. Without this, users whose last click landed
+        // outside VOCA — e.g. on the native OS language picker they just
+        // opened — have to click the onboarding window once before the
+        // shortcut responds. Global rdev capture works regardless, but on
+        // Windows/macOS that needs accessibility permissions which a
+        // fresh install hasn't granted yet.
+        getCurrentWindow().setFocus().catch(() => {})
+        await invoke('unlock_recording')
+        await invoke('show_pill')
+        // Give the OS compositor a beat to actually paint the now-visible
+        // pill window. Emitting the reveal event before this gap often
+        // resulted in the CSS animation running entirely inside the hidden
+        // webview, leaving the user with a silently-arrived pill. 120 ms is
+        // enough on the systems we've tested without feeling like a lag.
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        await emit('pill-animate-reveal', {
+          bubble: t('onboarding.pill.bubble', { defaultValue: 'Hey, hier unten bin ich.' }),
+        })
+      } catch (e) {
+        console.error('failed to unlock pill for test step:', e)
+      }
+    })()
+  }, [t])
+
   const trimmed = text.trim()
   const wordCount = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0
 
-  let statusLabel = 'warte auf shortcut…'
+  let statusLabel = t('onboarding.test.status.idle', 'Bereit, wenn du bereit bist.')
   let accentMic = false
   if (appState === 'recording') {
-    statusLabel = 'nehme auf… sprich weiter.'
+    statusLabel = t('onboarding.test.status.recording', 'Läuft. Halt einfach weiter gedrückt.')
     accentMic = true
   } else if (appState === 'processing') {
-    statusLabel = 'transkribiere…'
+    statusLabel = t('onboarding.test.status.processing', 'Hole gerade deinen Text ab …')
     accentMic = true
   } else if (appState === 'inserting') {
-    statusLabel = 'einfügen…'
+    statusLabel = t('onboarding.test.status.inserting', 'Füge ein …')
     accentMic = true
   }
 
   return (
     <div className="onb-stage" style={{ textAlign: 'center', alignItems: 'center' }}>
-      <div className="onb-eyebrow" style={{ alignSelf: 'center' }}>schritt 03 · dein erster versuch</div>
-      <h1 className="onb-title" style={{ textAlign: 'center', maxWidth: '16ch' }}>
-        Halt den Shortcut und sag irgendwas.
+      <div className="onb-eyebrow" style={{ alignSelf: 'center' }}>{t('onboarding.test.eyebrow', 'schritt 04 · dein erster versuch')}</div>
+      <h1 className="onb-title" style={{ textAlign: 'center', maxWidth: '20ch' }}>
+        <Trans i18nKey="onboarding.test.title" components={{ em: <em /> }}>
+          {'Probier\'s '}<em>einmal</em> aus.
+        </Trans>
       </h1>
+      <p className="onb-lede" style={{ textAlign: 'center', maxWidth: '44ch' }}>
+        {t('onboarding.test.lede', 'Halte deine Tastenkombination gedrückt und sag einen beliebigen Satz. VOCA begleitet dich Schritt für Schritt.')}
+      </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginTop: 12, width: '100%', maxWidth: 560 }}>
         <div className="mic-disc" style={accentMic ? { borderColor: 'var(--v-accent)' } : undefined}>
@@ -380,7 +605,7 @@ function StepTest({ onNext }: { onNext: () => void }) {
         <p className="v-meta">{statusLabel}</p>
 
         <div
-          aria-label="transkript"
+          aria-label={t('onboarding.test.transcriptLabel', 'transkript')}
           style={{
             width: '100%',
             minHeight: 120,
@@ -403,8 +628,8 @@ function StepTest({ onNext }: { onNext: () => void }) {
 
         {trimmed && (
           <div className="rc-stats" style={{ justifyContent: 'center' }}>
-            <div className="rc-stat"><span className="k">wörter</span><span className="v">{wordCount}</span></div>
-            <div className="rc-stat"><span className="k">zeichen</span><span className="v">{text.length}</span></div>
+            <div className="rc-stat"><span className="k">{t('onboarding.test.wordsLabel', 'wörter')}</span><span className="v">{wordCount}</span></div>
+            <div className="rc-stat"><span className="k">{t('onboarding.test.charsLabel', 'zeichen')}</span><span className="v">{text.length}</span></div>
           </div>
         )}
 
@@ -413,7 +638,7 @@ function StepTest({ onNext }: { onNext: () => void }) {
           onClick={onNext}
           style={{ marginTop: 4 }}
         >
-          {trimmed ? 'Perfekt. Weiter' : 'Überspringen'} <ChevronIcon />
+          {trimmed ? t('onboarding.test.continue', 'Perfekt, weiter') : t('onboarding.test.skip', 'Überspringen')} <ChevronIcon />
         </button>
       </div>
     </div>
@@ -425,9 +650,11 @@ function StepTest({ onNext }: { onNext: () => void }) {
 function StepAi({
   settings, onChange, onNext,
 }: { settings: Settings; onChange: (s: Settings) => void; onNext: () => void }) {
+  const { t } = useTranslation()
   const provider = settings.aiEnhancement.provider
   const provMeta = AI_PROVIDERS.find((p) => p.id === provider) ?? AI_PROVIDERS[0]
   const [apiKey, setApiKey] = useState('')
+  const [keyError, setKeyError] = useState<string | null>(null)
   const transcProv = settings.transcription.cloudProvider
   const canReuse = (provider as string) === (transcProv as string) && provider !== 'ollama'
 
@@ -438,24 +665,33 @@ function StepAi({
 
   async function handleReuse() {
     const k = await invoke<string | null>('get_transcription_key', { provider: transcProv })
-    if (k) setApiKey(k)
+    if (k) { setApiKey(k); setKeyError(null) }
   }
 
   async function handleEnable() {
-    if (provider !== 'ollama' && apiKey) await invoke('save_ai_provider_key', { provider, value: apiKey })
+    if (provider !== 'ollama') {
+      const err = validateKeyFormat(provider, apiKey)
+      if (err) { setKeyError(err); return }
+      setKeyError(null)
+      if (apiKey) await invoke('save_ai_provider_key', { provider, value: apiKey.trim() })
+    }
     await onNext()
-    // onNext navigates to 'done'; settings will be saved with enabled:true via FinaleStep
     onChange({ ...settings, aiEnhancement: { ...settings.aiEnhancement, enabled: true } })
   }
 
   const others = AI_PROVIDERS.filter((p) => p.id !== 'groq')
+  const providerLabel = AI_PROVIDERS.find((p) => p.id === provider)?.label ?? provider
 
   return (
     <div className="onb-stage">
-      <div className="onb-eyebrow">schritt 04 · optional</div>
-      <h1 className="onb-title">Rohtext oder <em>poliert</em>?</h1>
+      <div className="onb-eyebrow">{t('onboarding.aiEnhancement.eyebrow', 'schritt 05 · optional')}</div>
+      <h1 className="onb-title">
+        <Trans i18nKey="onboarding.aiEnhancement.title" components={{ em: <em /> }}>
+          Unbearbeitet oder in <em>Form</em> gebracht?
+        </Trans>
+      </h1>
       <p className="onb-lede">
-        Optional: VOCA leitet dein Transkript durch ein Sprachmodell — räumt Füllwörter auf, korrigiert Grammatik. Ton bleibt deiner.
+        {t('onboarding.aiEnhancement.lede', 'Auf Wunsch lässt VOCA dein Transkript durch ein Sprachmodell laufen. Es entfernt Füllwörter, korrigiert Grammatik und glättet den Satzbau. Deine Stimme bleibt erhalten. Jederzeit ein- oder ausschaltbar.')}
       </p>
 
       <div className="prov-grid" style={{ marginBottom: 16 }}>
@@ -463,9 +699,9 @@ function StepAi({
           className={`prov-card featured${provider === 'groq' ? ' is-active' : ''}`}
           onClick={() => onChange({ ...settings, aiEnhancement: { ...settings.aiEnhancement, provider: 'groq' } })}
         >
-          <span className="prov-badge">empfohlen</span>
+          <span className="prov-badge">{t('onboarding.aiEnhancement.recommended', 'empfohlen')}</span>
           <div className="prov-name">Groq</div>
-          <div className="prov-desc">Llama 3.3 auf Groq — kostenlos, extrem schnell. Gleicher Key wie bei der Transkription.</div>
+          <div className="prov-desc">{t('onboarding.aiEnhancement.providers.groq.desc')}</div>
         </button>
         {others.map((p) => (
           <button
@@ -474,39 +710,52 @@ function StepAi({
             onClick={() => onChange({ ...settings, aiEnhancement: { ...settings.aiEnhancement, provider: p.id } })}
           >
             <div className="prov-name">{p.label}</div>
-            <div className={`prov-meta${p.free ? ' free' : ''}`}>{p.meta}</div>
+            <div className={`prov-meta${p.free ? ' free' : ''}`}>{t(`onboarding.aiEnhancement.providers.${p.id}.meta`)}</div>
+            <div className="prov-desc">{t(`onboarding.aiEnhancement.providers.${p.id}.desc`)}</div>
           </button>
         ))}
       </div>
 
       {provider !== 'ollama' && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-          <input
-            className="v-input"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={provMeta.placeholder}
-            style={{ flex: 1, maxWidth: 360 }}
-          />
-          {canReuse && !apiKey ? (
-            <button className="v-btn ghost" onClick={handleReuse}>gleichen key nutzen</button>
-          ) : provMeta.keyLink ? (
-            <button className="v-btn ghost" onClick={() => open(provMeta.keyLink!)}>
-              <ExternalIcon /> schlüssel holen
-            </button>
-          ) : null}
-        </div>
+        <>
+          <div style={{ display: 'flex', gap: 10, marginBottom: canReuse && !apiKey ? 4 : (keyError ? 8 : 20) }}>
+            <input
+              className="v-input"
+              type="password"
+              value={apiKey}
+              onChange={(e) => { setApiKey(e.target.value); if (keyError) setKeyError(null) }}
+              placeholder={provMeta.placeholder}
+              style={{ flex: 1, maxWidth: 360 }}
+            />
+            {canReuse && !apiKey ? (
+              <button className="v-btn ghost" onClick={handleReuse}>{t('onboarding.aiEnhancement.reuseBtn', 'Gleichen Schlüssel nutzen')}</button>
+            ) : provMeta.keyLink ? (
+              <button className="v-btn ghost" onClick={() => open(provMeta.keyLink!)}>
+                <ExternalIcon /> {t('onboarding.aiEnhancement.getKey', 'Schlüssel erstellen')}
+              </button>
+            ) : null}
+          </div>
+          {canReuse && !apiKey && (
+            <p className="onb-reuse-hint" style={{ marginBottom: 20 }}>
+              {t('onboarding.aiEnhancement.reuseHint', { provider: providerLabel, defaultValue: 'Du nutzt {{provider}} bereits für die Transkription. Der bestehende Schlüssel kann hier übernommen werden.' })}
+            </p>
+          )}
+          {keyError && (
+            <div className="onb-err" style={{ marginBottom: 20 }}>
+              {t('errors.apiKeyFormat', { provider: providerLabel })}
+            </div>
+          )}
+        </>
       )}
       {provider === 'ollama' && (
         <p style={{ fontSize: 12, color: 'var(--v-ink-3)', marginBottom: 20, fontFamily: 'var(--f-ui)' }}>
-          Stelle sicher, dass Ollama läuft und das gewählte Modell heruntergeladen ist.
+          {t('onboarding.aiEnhancement.ollamaHint', 'Ollama muss lokal laufen und das gewählte Modell heruntergeladen sein.')}
         </p>
       )}
 
       <div style={{ display: 'flex', gap: 12 }}>
-        <button className="v-btn accent" onClick={handleEnable}>Aktivieren <ChevronIcon /></button>
-        <button className="v-btn ghost" onClick={onNext}>Später</button>
+        <button className="v-btn accent" onClick={handleEnable}>{t('onboarding.aiEnhancement.enable', 'Aktivieren')} <ChevronIcon /></button>
+        <button className="v-btn ghost" onClick={onNext}>{t('onboarding.aiEnhancement.later', 'Später entscheiden')}</button>
       </div>
     </div>
   )
@@ -515,15 +764,18 @@ function StepAi({
 /* ── Finale ──────────────────────────────────────────────────────────────── */
 
 function StepFinale({ settings, onFinish }: { settings: Settings; onFinish: (s: Settings) => Promise<void> }) {
-  const keys = (settings.shortcuts.key || DEFAULT_SHORTCUT).split('+')
+  const { t } = useTranslation()
+  const keys = (settings.shortcuts.key || DEFAULT_SHORTCUT).split('+').map((k) => formatShortcutKey(k))
   return (
     <div className="onb-stage" style={{ alignItems: 'center', textAlign: 'center', justifyContent: 'center' }}>
-      <div className="onb-eyebrow">einrichtung abgeschlossen</div>
+      <div className="onb-eyebrow">{t('onboarding.finale.eyebrow', 'einrichtung abgeschlossen')}</div>
       <h1 className="onb-title" style={{ fontSize: 72, textAlign: 'center', maxWidth: '14ch' }}>
-        <em>Jetzt</em> sprich<br />einfach los.
+        <Trans i18nKey="onboarding.finale.title" components={{ em: <em /> }}>
+          Alles <em>bereit.</em>
+        </Trans>
       </h1>
-      <p className="onb-lede" style={{ textAlign: 'center', maxWidth: '42ch', margin: '0 auto 36px' }}>
-        VOCA lebt ab jetzt in der Menüleiste. Die Pille am unteren Rand erscheint, sobald du aufnimmst.
+      <p className="onb-lede" style={{ textAlign: 'center', maxWidth: '48ch', margin: '0 auto 36px' }}>
+        {t('onboarding.finale.lede', 'VOCA läuft ab jetzt leise in der Menüleiste. Die Pille am unteren Rand taucht auf, sobald du aufnimmst. Alles Weitere findest du in den Einstellungen.')}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
         <div className="kbd-display">
@@ -534,9 +786,9 @@ function StepFinale({ settings, onFinish }: { settings: Settings; onFinish: (s: 
             </span>
           ))}
         </div>
-        <span className="v-meta">drücken · sprechen · loslassen</span>
+        <span className="v-meta">{t('onboarding.finale.shortcutMeta', 'drücken · sprechen · loslassen')}</span>
       </div>
-      <button className="v-btn accent" onClick={() => onFinish(settings)}>Loslegen</button>
+      <button className="v-btn accent" onClick={() => onFinish(settings)}>{t('onboarding.finale.cta', 'Loslegen')}</button>
     </div>
   )
 }
@@ -544,13 +796,9 @@ function StepFinale({ settings, onFinish }: { settings: Settings; onFinish: (s: 
 /* ── Shortcut field used in onboarding (big kbd display, click to record) ── */
 
 function KbdShortcutField({ value, onChange }: { value: string; onChange: (s: string) => void }) {
+  const { t } = useTranslation()
   const { recording, held, start, cancel, onKeyDown, onKeyUp, onBlur } = useShortcutCapture(onChange)
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
-  const label = (k: string) => {
-    if (k === 'Super') return isMac ? '⌘' : '⊞'
-    if (k === 'Alt')   return isMac ? '⌥' : 'Alt'
-    return k
-  }
+  const label = (k: string) => formatShortcutKey(k)
   const keys = recording
     ? (held.length > 0 ? sortShortcut(held).split('+') : [])
     : value.split('+')
@@ -577,7 +825,7 @@ function KbdShortcutField({ value, onChange }: { value: string; onChange: (s: st
           </span>
         )) : (
           <span style={{ fontFamily: 'var(--f-mono)', fontSize: 12, color: 'var(--v-ink-3)', padding: '4px 8px' }}>
-            tasten drücken…
+            {t('onboarding.shortcut.recordBtn.idle', 'tasten drücken…')}
           </span>
         )}
       </button>
@@ -587,7 +835,7 @@ function KbdShortcutField({ value, onChange }: { value: string; onChange: (s: st
           onClick={cancel}
           style={{ fontSize: 12, color: 'var(--v-ink-3)', background: 'none', border: 'none', cursor: 'pointer' }}
         >
-          abbrechen
+          {t('onboarding.shortcut.cancel', 'abbrechen')}
         </button>
       )}
     </>

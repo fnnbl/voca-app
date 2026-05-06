@@ -3,8 +3,17 @@ import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { SettingRow } from '../../components/settings/SettingRow'
 import { ShortcutRecorder } from '../../components/settings/ShortcutRecorder'
-import { DEFAULT_SHORTCUT } from '../../types'
-import type { Settings } from '../../types'
+import { DEFAULT_SHORTCUT, SUPPORTED_UI_LANGUAGES } from '../../types'
+import type { Settings, UiLanguage } from '../../types'
+
+const LANGUAGE_LABELS: Record<UiLanguage, string> = {
+  de: 'Deutsch',
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  pt: 'Português',
+  it: 'Italiano',
+}
 
 interface Props {
   settings: Settings
@@ -48,7 +57,7 @@ export function GeneralSettings({ settings, onChange }: Props) {
     onChange({ ...settings, general: { ...settings.general, audioInputDevice: value } })
   }
 
-  function setLanguage(lang: 'de' | 'en') {
+  function setLanguage(lang: UiLanguage) {
     onChange({ ...settings, general: { ...settings.general, language: lang } })
   }
 
@@ -60,23 +69,38 @@ export function GeneralSettings({ settings, onChange }: Props) {
     onChange({ ...settings, general: { ...settings.general, onboardingCompleted: false } })
   }
 
+  const historyTracking = settings.privacy?.historyTracking ?? true
+  const targetAppTracking = settings.privacy?.targetAppTracking ?? false
+
+  function togglePrivacy(key: 'historyTracking' | 'targetAppTracking') {
+    const current = { historyTracking, targetAppTracking }
+    const next = { ...current, [key]: !current[key] }
+    // Turning the master off implicitly disables the sub-toggle so we never
+    // persist a contradictory "history off, target-app on" state.
+    if (key === 'historyTracking' && !next.historyTracking) {
+      next.targetAppTracking = false
+    }
+    onChange({ ...settings, privacy: next })
+  }
+
   return (
     <div>
       <p className="page-eyebrow">einstellungen</p>
       <h1 className="page-title" style={{ marginBottom: 28 }}>{t('settings.nav.general')}</h1>
 
-      <SettingRow label={t('settings.general.language')}>
-        <div className="v-seg">
-          {(['de', 'en'] as const).map((lang) => (
-            <button
-              key={lang}
-              onClick={() => setLanguage(lang)}
-              className={settings.general.language === lang ? 'is-active' : ''}
-            >
-              {lang === 'de' ? 'Deutsch' : 'English'}
-            </button>
+      <SettingRow
+        label={t('settings.general.uiLanguage')}
+        description={t('settings.general.uiLanguageDescription')}
+      >
+        <select
+          value={settings.general.language}
+          onChange={(e) => setLanguage(e.target.value as UiLanguage)}
+          className="w-56 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg text-text focus:outline-none focus:border-accent"
+        >
+          {SUPPORTED_UI_LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
           ))}
-        </div>
+        </select>
       </SettingRow>
 
       <SettingRow label={t('settings.general.theme')} description="">
@@ -129,6 +153,35 @@ export function GeneralSettings({ settings, onChange }: Props) {
         >
           {t('settings.general.onboarding')}
         </button>
+      </SettingRow>
+
+      <p className="sec-head">{t('settings.privacy.section')}</p>
+
+      <SettingRow
+        label={t('settings.privacy.historyTracking')}
+        description={t('settings.privacy.historyTrackingDesc')}
+      >
+        <button
+          role="switch"
+          aria-checked={historyTracking}
+          onClick={() => togglePrivacy('historyTracking')}
+          className={`v-switch${historyTracking ? ' on' : ''}`}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.privacy.targetAppTracking')}
+        description={t('settings.privacy.targetAppTrackingDesc')}
+      >
+        <button
+          role="switch"
+          aria-checked={targetAppTracking && historyTracking}
+          aria-disabled={!historyTracking}
+          disabled={!historyTracking}
+          onClick={() => togglePrivacy('targetAppTracking')}
+          className={`v-switch${targetAppTracking && historyTracking ? ' on' : ''}`}
+          style={{ opacity: historyTracking ? 1 : 0.4, cursor: historyTracking ? 'pointer' : 'not-allowed' }}
+        />
       </SettingRow>
     </div>
   )
