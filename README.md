@@ -38,7 +38,7 @@ Other platforms (iOS, Android) are out of scope - VOCA's architecture depends on
 
 ## Install
 
-The Windows installer (MSI and NSIS) ships with v0.3.0 - see the [Releases page](https://github.com/fnnbl/voca-app/releases) once the first release lands.
+The Windows installer ships with v0.3.0 - see the [Releases page](https://github.com/fnnbl/voca-app/releases) once the first release lands.
 
 VOCA is shipped unsigned for v0.3.0, so Windows SmartScreen will block the installer on first run with "Windows protected your PC". To proceed:
 
