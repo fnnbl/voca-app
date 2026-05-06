@@ -80,30 +80,22 @@ jobs:
         with:
           name: sboms
 
+      - name: Install Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+            | sh -s -- -b /usr/local/bin
+
       - name: Generate SARIF report
-        id: grype-sarif
-        uses: anchore/scan-action@v3
-        with:
-          sbom: sbom.cyclonedx.json
-          severity-cutoff: high
-          only-fixed: true
-          fail-build: false
-          output-format: sarif
+        run: grype sbom:sbom.cyclonedx.json -o sarif --file grype-results.sarif
 
       - name: Upload SARIF to Security tab
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ${{ steps.grype-sarif.outputs.sarif }}
+          sarif_file: grype-results.sarif
 
       - name: Gate on high+ severity
-        uses: anchore/scan-action@v3
-        with:
-          sbom: sbom.cyclonedx.json
-          severity-cutoff: high
-          only-fixed: true
-          fail-build: true
-          output-format: table
+        run: grype sbom:sbom.cyclonedx.json --fail-on high --only-fixed
 
   release-attach:
     name: Attach SBOMs to release
