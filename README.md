@@ -36,6 +36,17 @@ Not part of the current release plan, but the foundation is already there: audio
 
 Other platforms (iOS, Android) are out of scope - VOCA's architecture depends on a global shortcut + system text injection, which mobile operating systems don't expose to third-party apps.
 
+## Install
+
+The Windows installer (MSI and NSIS) ships with v0.3.0 - see the [Releases page](https://github.com/fnnbl/voca-app/releases) once the first release lands.
+
+VOCA is shipped unsigned for v0.3.0, so Windows SmartScreen will block the installer on first run with "Windows protected your PC". To proceed:
+
+1. Click **More info**
+2. Click **Run anyway**
+
+The warning appears because reputation has not built up yet for a new installer, not because anything is wrong with the file. Code signing is on the roadmap (Azure Trusted Signing, ~$120/year) once donation volume can sustain it - see [issue #12](https://github.com/fnnbl/voca-app/issues/12) for the phased plan.
+
 ## Build from source
 
 ```bash
