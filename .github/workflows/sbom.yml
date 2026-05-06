@@ -1,0 +1,117 @@
+name: SBOM and CVE Scan
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches:
+      - develop
+      - main
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate SBOMs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Resolve Cargo dependencies
+        working-directory: src-tauri
+        run: cargo metadata --locked --format-version 1 > /dev/null
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sboms
+          path: |
+            sbom.cyclonedx.json
+            sbom.spdx.json
+          retention-days: 90
+
+  scan:
+    name: Scan SBOM for CVEs
+    runs-on: ubuntu-latest
+    needs: generate
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sboms
+
+      - name: Scan with Grype
+        id: grype-scan
+        uses: anchore/scan-action@v3
+        with:
+          sbom: sbom.cyclonedx.json
+          severity-cutoff: high
+          only-fixed: true
+          fail-build: true
+          output-format: sarif
+
+      - name: Upload SARIF to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.grype-scan.outputs.sarif }}
+
+  release-attach:
+    name: Attach SBOMs to release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: generate
+    permissions:
+      contents: write
+    steps:
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sboms
+
+      - name: Attach SBOMs to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sbom.cyclonedx.json
+            sbom.spdx.json
