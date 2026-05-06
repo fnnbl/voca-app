@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { open } from '@tauri-apps/plugin-shell'
+import { version as appVersion } from '../../package.json'
 
 const BMC_URL = 'https://buymeacoffee.com/fnnbl'
 
@@ -28,7 +29,7 @@ export function AboutPage({ onOpenLegal }: Props) {
       <div className="about-divider" />
 
       <p className="about-meta">
-        VOCA v0.3.0 · open source · MIT License
+        VOCA v{appVersion} · open source · MIT License
       </p>
 
       <button
