@@ -1,0 +1,19 @@
+# Grype configuration — documented suppressions for CVE scanning.
+#
+# This is the single source of truth for false-positive and accepted-risk
+# suppressions. Do not pass `--exclude` flags or action inputs to bypass
+# findings; add them here with context instead.
+#
+# Each ignore entry must carry:
+#   - a reason explaining why the finding is suppressed
+#   - the date it was added (YYYY-MM-DD)
+#
+# Example:
+#   ignore:
+#     - vulnerability: CVE-2024-12345
+#       # reason: false positive — affects only the deprecated foo code path we don't use
+#       # added: 2026-05-06
+#       package:
+#         name: bar
+
+ignore: []
