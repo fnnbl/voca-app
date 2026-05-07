@@ -49,6 +49,10 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Clean stale bundle directory
+        shell: bash
+        run: rm -rf src-tauri/target/release/bundle
+
       - name: Build Tauri app (NSIS, unsigned)
         run: npm run tauri build -- --bundles nsis
 
@@ -60,11 +64,32 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
+      - name: Install Syft
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/syft-bin"
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b "$RUNNER_TEMP/syft-bin"
+          echo "$RUNNER_TEMP/syft-bin" >> "$GITHUB_PATH"
+
+      - name: Generate SBOMs (CycloneDX + SPDX)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          syft . \
+            --override-default-catalogers 'rust,javascript' \
+            --output cyclonedx-json=sbom.cyclonedx.json \
+            --output spdx-json=sbom.spdx.json
+
       - name: Publish draft release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/release/bundle/nsis/*.exe
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            sbom.cyclonedx.json
+            sbom.spdx.json
           generate_release_notes: true
           draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
