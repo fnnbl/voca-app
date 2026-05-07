@@ -323,7 +323,6 @@ input[type="password"]::-ms-reveal { display: none; }
 .shell-sidebar { width: 208px; flex-shrink: 0; background: var(--v-surface-2); border-right: 1px solid var(--v-line-soft); display: flex; flex-direction: column; padding: 20px 12px; overflow-y: auto; }
 .shell-brand { padding: 0 12px 20px; display: flex; align-items: baseline; gap: 10px; }
 .shell-brand .mark { font-family: var(--f-display); font-style: normal; font-weight: 800; text-transform: uppercase; font-size: 22px; letter-spacing: 0.06em; line-height: 1; color: var(--v-ink); }
-.shell-brand .version { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--v-ink-4); }
 .shell-nav { display: flex; flex-direction: column; gap: 1px; flex: 1; }
 .shell-nav-group { display: flex; align-items: center; gap: 8px; font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--v-ink-4); padding: 14px 12px 6px; }
 .shell-nav-group::after { content: ""; flex: 1; height: 1px; background: var(--v-line-soft); }

@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { version as appVersion } from '../../package.json'
 import { useAppStore } from '../stores/appStore'
 import { GeneralSettings } from './settings/GeneralSettings'
 import { TranscriptionSettings } from './settings/TranscriptionSettings'
@@ -51,7 +50,6 @@ export function SettingsPage({ settings, onSave }: Props) {
         <div className="shell-brand">
           <VocaLogoMark size={22} />
           <span className="mark">VOCA</span>
-          <span className="version">v{appVersion.split('.').slice(0, 2).join('.')}</span>
         </div>
 
         <nav className="shell-nav">
