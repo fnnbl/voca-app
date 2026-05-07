@@ -141,16 +141,25 @@ mod tests {
     #[test]
     fn ranks_by_total_count_desc() {
         // "also" appears 6 times across 3 transcripts; "halt" 5 across 3.
-        // "also" should rank first.
+        // Both clear the min-occurrences (5) and min-distinct (3) thresholds;
+        // "also" should rank above "halt".
         let history = vec![
-            entry(1, "ich gehe also nach hause also wirklich"),
-            entry(2, "also kommt das halt darauf an halt"),
-            entry(3, "also halt halt"),
+            entry(1, "also also also halt halt"),
+            entry(2, "also also halt halt"),
+            entry(3, "also halt"),
         ];
         let fillers = FillersFile::default();
         let suggestions = compute_suggestions(&history, &fillers);
-        assert!(suggestions.contains(&"also".to_string()));
-        assert!(suggestions.contains(&"halt".to_string()));
+        assert!(
+            suggestions.contains(&"also".to_string()),
+            "expected `also` in suggestions, got {:?}",
+            suggestions
+        );
+        assert!(
+            suggestions.contains(&"halt".to_string()),
+            "expected `halt` in suggestions, got {:?}",
+            suggestions
+        );
         let also_idx = suggestions.iter().position(|w| w == "also").unwrap();
         let halt_idx = suggestions.iter().position(|w| w == "halt").unwrap();
         assert!(also_idx < halt_idx, "also should rank above halt: {:?}", suggestions);
