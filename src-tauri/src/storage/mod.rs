@@ -236,6 +236,17 @@ pub struct FillerEntry {
     pub word: String,
 }
 
+/// On-disk shape for `fillers.json`. Migrated silently from the legacy
+/// flat-array format on first load after update.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FillersFile {
+    #[serde(default)]
+    pub words: Vec<FillerEntry>,
+    #[serde(default)]
+    pub rejected: Vec<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryEntry {
@@ -322,11 +333,11 @@ pub fn load_dictionary(app: &AppHandle) -> Result<Vec<DictionaryEntry>, String> 
 pub fn save_dictionary(app: &AppHandle, entries: &[DictionaryEntry]) -> Result<(), String> {
     save_to_path_raw(&dictionary_path(app)?, entries)
 }
-pub fn load_fillers(app: &AppHandle) -> Result<Vec<FillerEntry>, String> {
-    load_vec_from_path(&fillers_path(app)?)
+pub fn load_fillers(app: &AppHandle) -> Result<FillersFile, String> {
+    load_fillers_from_path(&fillers_path(app)?)
 }
-pub fn save_fillers(app: &AppHandle, entries: &[FillerEntry]) -> Result<(), String> {
-    save_to_path_raw(&fillers_path(app)?, entries)
+pub fn save_fillers(app: &AppHandle, fillers: &FillersFile) -> Result<(), String> {
+    save_to_path_raw(&fillers_path(app)?, fillers)
 }
 pub fn load_history(app: &AppHandle) -> Result<Vec<HistoryEntry>, String> {
     load_vec_from_path(&history_path(app)?)
@@ -435,6 +446,25 @@ where
     }
     let content = std::fs::read_to_string(path).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
     serde_json::from_str(&content).map_err(|e| format!("STORAGE_ERROR: {e}"))
+}
+
+/// Load `fillers.json`, migrating the legacy flat-array shape
+/// (`[FillerEntry, …]`) to the current object shape silently. The migrated
+/// content is not written back here — the next `save_fillers` call writes
+/// the new shape on its own.
+pub(crate) fn load_fillers_from_path(path: &Path) -> Result<FillersFile, String> {
+    if !path.exists() {
+        return Ok(FillersFile::default());
+    }
+    let content = std::fs::read_to_string(path).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    if value.is_array() {
+        let words: Vec<FillerEntry> = serde_json::from_value(value)
+            .map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+        return Ok(FillersFile { words, rejected: Vec::new() });
+    }
+    serde_json::from_value(value).map_err(|e| format!("STORAGE_ERROR: {e}"))
 }
 
 pub(crate) fn save_to_path_raw<T: serde::Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), String> {
@@ -867,5 +897,80 @@ mod tests {
         std::fs::write(&path, "{not an array}").unwrap();
         let result: Result<Vec<Snippet>, _> = load_vec_from_path(&path);
         assert!(result.is_err());
+    }
+
+    // ── fillers.json migration ────────────────────────────────────────────────
+
+    #[test]
+    fn load_fillers_returns_default_when_file_missing() {
+        let dir = tmp();
+        let path = dir.path().join("fillers.json");
+        let loaded = load_fillers_from_path(&path).unwrap();
+        assert!(loaded.words.is_empty());
+        assert!(loaded.rejected.is_empty());
+    }
+
+    #[test]
+    fn load_fillers_migrates_legacy_flat_array() {
+        let dir = tmp();
+        let path = dir.path().join("fillers.json");
+        // Pre-#35 format: a flat array of FillerEntry.
+        let legacy = serde_json::json!([
+            { "id": "1", "word": "ähm" },
+            { "id": "2", "word": "halt" }
+        ]);
+        std::fs::write(&path, serde_json::to_string(&legacy).unwrap()).unwrap();
+
+        let loaded = load_fillers_from_path(&path).unwrap();
+        assert_eq!(loaded.words.len(), 2);
+        assert_eq!(loaded.words[0].word, "ähm");
+        assert_eq!(loaded.words[1].word, "halt");
+        assert!(loaded.rejected.is_empty());
+    }
+
+    #[test]
+    fn load_fillers_loads_new_object_format() {
+        let dir = tmp();
+        let path = dir.path().join("fillers.json");
+        let new_format = serde_json::json!({
+            "words": [{ "id": "1", "word": "halt" }],
+            "rejected": ["also", "ja"]
+        });
+        std::fs::write(&path, serde_json::to_string(&new_format).unwrap()).unwrap();
+
+        let loaded = load_fillers_from_path(&path).unwrap();
+        assert_eq!(loaded.words.len(), 1);
+        assert_eq!(loaded.words[0].word, "halt");
+        assert_eq!(loaded.rejected, vec!["also".to_string(), "ja".to_string()]);
+    }
+
+    #[test]
+    fn load_fillers_handles_object_without_rejected_key() {
+        // Defensive: an upgrade path could write `{ words: [...] }` without
+        // `rejected` if a future version of the schema were ever rolled back
+        // by hand. `#[serde(default)]` makes that load cleanly.
+        let dir = tmp();
+        let path = dir.path().join("fillers.json");
+        let partial = serde_json::json!({ "words": [{ "id": "1", "word": "uh" }] });
+        std::fs::write(&path, serde_json::to_string(&partial).unwrap()).unwrap();
+
+        let loaded = load_fillers_from_path(&path).unwrap();
+        assert_eq!(loaded.words.len(), 1);
+        assert!(loaded.rejected.is_empty());
+    }
+
+    #[test]
+    fn save_fillers_roundtrip_preserves_rejected_list() {
+        let dir = tmp();
+        let path = dir.path().join("fillers.json");
+        let fillers = FillersFile {
+            words: vec![FillerEntry { id: "1".into(), word: "halt".into() }],
+            rejected: vec!["also".into()],
+        };
+        save_to_path_raw(&path, &fillers).unwrap();
+        let loaded = load_fillers_from_path(&path).unwrap();
+        assert_eq!(loaded.words.len(), 1);
+        assert_eq!(loaded.words[0].word, "halt");
+        assert_eq!(loaded.rejected, vec!["also".to_string()]);
     }
 }

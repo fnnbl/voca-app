@@ -291,7 +291,13 @@
       "description": "Las palabras de esta lista se eliminan de la transcripción antes de que se ejecute la mejora con IA, si el toggle superior derecho está activo.",
       "wordPlaceholder": "p. ej. eh, o sea, tipo, vale",
       "add": "Añadir",
-      "empty": "Aún no hay muletillas. Candidatas típicas: eh, o sea, tipo, vale, pues, bueno, vaya, literalmente, básicamente, en plan."
+      "empty": "Aún no hay muletillas. Candidatas típicas: eh, o sea, tipo, vale, pues, bueno, vaya, literalmente, básicamente, en plan.",
+      "suggested": {
+        "title": "Sugerencias",
+        "description": "Detectadas en tu historial de transcripciones — muletillas frecuentes que aún no están en tu lista.",
+        "accept": "Añadir",
+        "reject": "Ocultar"
+      }
     }
   },
   "errors": {

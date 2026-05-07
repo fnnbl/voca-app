@@ -291,7 +291,13 @@
       "description": "Le parole in questo elenco vengono rimosse dalla trascrizione prima del miglioramento IA, quando il toggle in alto a destra è attivo.",
       "wordPlaceholder": "p. es. ehm, tipo, cioè, praticamente",
       "add": "Aggiungi",
-      "empty": "Nessun intercalare ancora. Candidati tipici: ehm, tipo, cioè, praticamente, insomma, letteralmente, diciamo, ecco, capito, come dire."
+      "empty": "Nessun intercalare ancora. Candidati tipici: ehm, tipo, cioè, praticamente, insomma, letteralmente, diciamo, ecco, capito, come dire.",
+      "suggested": {
+        "title": "Suggeriti",
+        "description": "Rilevati dalla tua cronologia di trascrizioni — intercalari frequenti non ancora presenti nella tua lista.",
+        "accept": "Aggiungi",
+        "reject": "Nascondi"
+      }
     }
   },
   "errors": {

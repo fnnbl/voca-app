@@ -646,10 +646,10 @@ fn maybe_remove_fillers(
         return text;
     }
     let fillers = match crate::storage::load_fillers(app) {
-        Ok(list) => list,
+        Ok(file) => file,
         Err(_) => return text,
     };
-    let words: Vec<String> = fillers.into_iter().map(|e| e.word).collect();
+    let words: Vec<String> = fillers.words.into_iter().map(|e| e.word).collect();
     apply_fillers_to_text(text, &words)
 }
 

@@ -291,7 +291,13 @@
       "description": "Wörter aus dieser Liste werden vor der KI-Nachbearbeitung aus der Transkription entfernt, wenn der Toggle oben rechts aktiv ist.",
       "wordPlaceholder": "z. B. also, halt, quasi",
       "add": "Hinzufügen",
-      "empty": "Noch keine Füllwörter. Typische Kandidaten: also, halt, ja, quasi, sozusagen, irgendwie, eigentlich, um, uh, ähm, like, you know."
+      "empty": "Noch keine Füllwörter. Typische Kandidaten: also, halt, ja, quasi, sozusagen, irgendwie, eigentlich, um, uh, ähm, like, you know.",
+      "suggested": {
+        "title": "Vorschläge",
+        "description": "Aus deinem Transkript-Verlauf erkannt — häufige Füllwörter, die noch nicht in deiner Liste sind.",
+        "accept": "Übernehmen",
+        "reject": "Ausblenden"
+      }
     }
   },
   "errors": {
