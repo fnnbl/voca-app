@@ -291,7 +291,13 @@
       "description": "As palavras nesta lista são removidas da transcrição antes da melhoria por IA, se o toggle no canto superior direito estiver ativo.",
       "wordPlaceholder": "p. ex. tipo, pá, sabes, então",
       "add": "Adicionar",
-      "empty": "Ainda não há muletas. Candidatas típicas: tipo, pá, sabes, então, pronto, enfim, literalmente, basicamente, na boa."
+      "empty": "Ainda não há muletas. Candidatas típicas: tipo, pá, sabes, então, pronto, enfim, literalmente, basicamente, na boa.",
+      "suggested": {
+        "title": "Sugestões",
+        "description": "Detetadas no teu histórico de transcrições — muletas frequentes que ainda não estão na tua lista.",
+        "accept": "Adicionar",
+        "reject": "Ocultar"
+      }
     }
   },
   "errors": {

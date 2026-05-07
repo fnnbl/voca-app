@@ -291,7 +291,13 @@
       "description": "Words on this list are stripped from the transcription before AI enhancement runs, when the toggle in the top right is on.",
       "wordPlaceholder": "e.g. um, uh, like, basically",
       "add": "Add",
-      "empty": "No filler words yet. Common candidates: um, uh, like, you know, basically, literally, actually, right, so, also, halt, quasi."
+      "empty": "No filler words yet. Common candidates: um, uh, like, you know, basically, literally, actually, right, so, also, halt, quasi.",
+      "suggested": {
+        "title": "Suggested",
+        "description": "Picked up from your transcript history — common fillers that aren't on your list yet.",
+        "accept": "Add",
+        "reject": "Hide"
+      }
     }
   },
   "errors": {

@@ -4,6 +4,7 @@ pub mod audio_ducking;
 pub mod clipboard;
 pub mod commands;
 pub mod errors;
+pub mod fillers;
 pub mod hotkey;
 pub mod keychain;
 pub mod local_transcription;
@@ -240,6 +241,8 @@ pub fn run() {
             commands::save_snippets,
             commands::get_fillers,
             commands::save_fillers,
+            commands::get_filler_suggestions,
+            commands::reject_filler_suggestion,
             commands::get_autostart,
             commands::set_autostart,
             commands::get_history,
