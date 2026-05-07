@@ -17,6 +17,11 @@ export interface FillerEntry {
   word: string
 }
 
+export interface FillersFile {
+  words: FillerEntry[]
+  rejected: string[]
+}
+
 export interface AIPrompt {
   id: string
   name: string

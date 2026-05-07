@@ -333,13 +333,33 @@ pub fn save_snippets(app: tauri::AppHandle, snippets: Vec<crate::storage::Snippe
 }
 
 #[tauri::command]
-pub fn get_fillers(app: tauri::AppHandle) -> Result<Vec<crate::storage::FillerEntry>, String> {
+pub fn get_fillers(app: tauri::AppHandle) -> Result<crate::storage::FillersFile, String> {
     crate::storage::load_fillers(&app)
 }
 
 #[tauri::command]
-pub fn save_fillers(app: tauri::AppHandle, entries: Vec<crate::storage::FillerEntry>) -> Result<(), String> {
-    crate::storage::save_fillers(&app, &entries)
+pub fn save_fillers(
+    app: tauri::AppHandle,
+    fillers: crate::storage::FillersFile,
+) -> Result<(), String> {
+    crate::storage::save_fillers(&app, &fillers)
+}
+
+#[tauri::command]
+pub fn get_filler_suggestions(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let history = crate::storage::load_history(&app)?;
+    let fillers = crate::storage::load_fillers(&app)?;
+    Ok(crate::fillers::compute_suggestions(&history, &fillers))
+}
+
+#[tauri::command]
+pub fn reject_filler_suggestion(app: tauri::AppHandle, word: String) -> Result<(), String> {
+    let mut fillers = crate::storage::load_fillers(&app)?;
+    let lower = word.to_lowercase();
+    if !fillers.rejected.iter().any(|w| w.to_lowercase() == lower) {
+        fillers.rejected.push(word);
+    }
+    crate::storage::save_fillers(&app, &fillers)
 }
 
 #[tauri::command]

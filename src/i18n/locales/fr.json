@@ -291,7 +291,13 @@
       "description": "Les mots de cette liste sont retirés de la transcription avant l'amélioration IA, si le toggle en haut à droite est actif.",
       "wordPlaceholder": "p. ex. euh, bah, genre, du coup",
       "add": "Ajouter",
-      "empty": "Aucun mot-béquille pour l'instant. Candidats typiques : euh, bah, genre, du coup, voilà, en fait, quoi, bon, tu vois, style."
+      "empty": "Aucun mot-béquille pour l'instant. Candidats typiques : euh, bah, genre, du coup, voilà, en fait, quoi, bon, tu vois, style.",
+      "suggested": {
+        "title": "Suggestions",
+        "description": "Repérés dans votre historique de transcription — mots-béquilles fréquents qui ne figurent pas encore dans votre liste.",
+        "accept": "Ajouter",
+        "reject": "Masquer"
+      }
     }
   },
   "errors": {

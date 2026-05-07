@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
-import type { FillerEntry, Settings } from '../../types'
+import type { FillerEntry, FillersFile, Settings } from '../../types'
 
 interface Props {
   settings: Settings
@@ -10,35 +10,65 @@ interface Props {
 
 export function FillersSettings({ settings, onChange }: Props) {
   const { t } = useTranslation()
-  const [entries, setEntries] = useState<FillerEntry[]>([])
+  const [words, setWords] = useState<FillerEntry[]>([])
+  const [rejected, setRejected] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const enabled = settings.transcription?.removeFillerWords ?? false
+  const historyTracking = settings.privacy?.historyTracking ?? true
 
   useEffect(() => {
-    invoke<FillerEntry[]>('get_fillers').then(setEntries).catch(console.error)
+    invoke<FillersFile>('get_fillers')
+      .then((file) => {
+        setWords(file.words)
+        setRejected(file.rejected)
+      })
+      .catch(console.error)
   }, [])
 
-  async function persist(updated: FillerEntry[]) {
-    setEntries(updated)
-    await invoke('save_fillers', { entries: updated })
+  useEffect(() => {
+    if (!historyTracking) {
+      setSuggestions([])
+      return
+    }
+    invoke<string[]>('get_filler_suggestions').then(setSuggestions).catch(console.error)
+  }, [historyTracking])
+
+  async function persistWords(updatedWords: FillerEntry[]) {
+    setWords(updatedWords)
+    await invoke('save_fillers', { fillers: { words: updatedWords, rejected } })
   }
 
   async function handleAdd() {
     const word = input.trim()
     if (!word) return
-    if (entries.some((e) => e.word.toLowerCase() === word.toLowerCase())) {
+    if (words.some((e) => e.word.toLowerCase() === word.toLowerCase())) {
       setInput('')
       return
     }
-    await persist([...entries, { id: crypto.randomUUID(), word }])
+    await persistWords([...words, { id: crypto.randomUUID(), word }])
     setInput('')
     inputRef.current?.focus()
   }
 
   async function handleDelete(id: string) {
-    await persist(entries.filter((e) => e.id !== id))
+    await persistWords(words.filter((e) => e.id !== id))
+  }
+
+  async function handleAcceptSuggestion(word: string) {
+    setSuggestions(suggestions.filter((s) => s !== word))
+    if (words.some((e) => e.word.toLowerCase() === word.toLowerCase())) {
+      return
+    }
+    await persistWords([...words, { id: crypto.randomUUID(), word }])
+  }
+
+  async function handleRejectSuggestion(word: string) {
+    setSuggestions(suggestions.filter((s) => s !== word))
+    setRejected([...rejected, word])
+    await invoke('reject_filler_suggestion', { word })
   }
 
   function toggleEnabled() {
@@ -47,6 +77,8 @@ export function FillersSettings({ settings, onChange }: Props) {
       transcription: { ...settings.transcription, removeFillerWords: !enabled },
     })
   }
+
+  const showSuggested = historyTracking && suggestions.length > 0
 
   return (
     <div>
@@ -64,6 +96,42 @@ export function FillersSettings({ settings, onChange }: Props) {
       <p className="text-xs text-text-muted mb-4">
         {t('settings.fillers.description')}
       </p>
+
+      {showSuggested && (
+        <div style={{ opacity: enabled ? 1 : 0.55, marginBottom: 24 }}>
+          <p className="sec-head">{t('settings.fillers.suggested.title')}</p>
+          <p className="text-xs text-text-muted mb-3">
+            {t('settings.fillers.suggested.description')}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((word) => (
+              <div
+                key={word}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border bg-surface"
+              >
+                <span className="text-xs text-text">{word}</span>
+                <button
+                  onClick={() => handleAcceptSuggestion(word)}
+                  disabled={!enabled}
+                  className="text-text-muted hover:text-accent transition-colors text-xs leading-none disabled:cursor-not-allowed ml-0.5"
+                  aria-label={t('settings.fillers.suggested.accept')}
+                  title={t('settings.fillers.suggested.accept')}
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => handleRejectSuggestion(word)}
+                  className="text-text-muted hover:text-red-400 transition-colors text-xs leading-none"
+                  aria-label={t('settings.fillers.suggested.reject')}
+                  title={t('settings.fillers.suggested.reject')}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-4" style={{ opacity: enabled ? 1 : 0.55 }}>
         <input
@@ -84,9 +152,9 @@ export function FillersSettings({ settings, onChange }: Props) {
         </button>
       </div>
 
-      {entries.length > 0 ? (
+      {words.length > 0 ? (
         <div className="flex flex-wrap gap-1.5" style={{ opacity: enabled ? 1 : 0.55 }}>
-          {entries.map((entry) => (
+          {words.map((entry) => (
             <div
               key={entry.id}
               className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border bg-surface-raised group"
