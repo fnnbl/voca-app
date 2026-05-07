@@ -137,16 +137,24 @@ pub fn run() {
             *app.state::<RecordingGate>().0.lock().unwrap() = onboarding_done;
 
             if let Some(status_bar) = app.get_webview_window("status-bar") {
-                // Prefer primary_monitor for reliable startup positioning;
-                // the monitor's .position() offset is added so multi-monitor
-                // setups where the primary isn't at (0,0) work correctly.
-                let monitor = status_bar
-                    .primary_monitor()
+                // The pill window starts hidden (tauri.conf.json
+                // `visible: false`) so the OS-chosen initial position is
+                // never visible. We pick the active monitor (the one the
+                // cursor is on), position deterministically, then show.
+                let monitors = status_bar.available_monitors().unwrap_or_default();
+                let cursor_monitor = app
+                    .cursor_position()
                     .ok()
-                    .flatten()
+                    .and_then(|cursor| monitor_for_cursor(&monitors, cursor))
+                    .and_then(|idx| monitors.get(idx).cloned());
+                let initial_monitor = cursor_monitor
+                    .or_else(|| status_bar.primary_monitor().ok().flatten())
                     .or_else(|| status_bar.current_monitor().ok().flatten());
-                if let Some(m) = monitor {
-                    position_status_bar(&status_bar, &m);
+                let initial_monitor_name = initial_monitor
+                    .as_ref()
+                    .and_then(|m| m.name().cloned());
+                if let Some(m) = &initial_monitor {
+                    position_status_bar(&status_bar, m);
                 }
                 // Click-through so the pill never blocks apps underneath.
                 // The frontend also calls this on mount, but that Ignore
@@ -161,9 +169,17 @@ pub fn run() {
                 // leaving the pill behind any normal window. Re-asserting
                 // here matches the click-through belt-and-suspenders.
                 let _ = status_bar.set_always_on_top(true);
-                if !onboarding_done {
-                    let _ = status_bar.hide();
+                if onboarding_done {
+                    let _ = status_bar.show();
                 }
+
+                // Watch for active-monitor changes (cursor crossing
+                // monitor boundaries). The pill follows monitors, not
+                // pixel-level cursor movement.
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    watch_active_monitor(app_handle, initial_monitor_name).await;
+                });
             }
 
             if let Some(main) = app.get_webview_window("main") {
@@ -248,6 +264,48 @@ pub fn position_status_bar(window: &tauri::WebviewWindow, monitor: &tauri::Monit
     let x = origin.x + (size.width as i32 - win_w) / 2;
     let y = origin.y + size.height as i32 - win_h - (56.0 * scale) as i32;
     let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+}
+
+fn monitor_for_cursor(
+    monitors: &[tauri::Monitor],
+    cursor: tauri::PhysicalPosition<f64>,
+) -> Option<usize> {
+    monitors.iter().position(|m| {
+        let mp = m.position();
+        let ms = m.size();
+        let x = cursor.x as i32;
+        let y = cursor.y as i32;
+        x >= mp.x
+            && x < mp.x + ms.width as i32
+            && y >= mp.y
+            && y < mp.y + ms.height as i32
+    })
+}
+
+async fn watch_active_monitor(app: tauri::AppHandle, initial_monitor_name: Option<String>) {
+    use std::time::Duration;
+    let mut last_name = initial_monitor_name;
+    loop {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let Some(status_bar) = app.get_webview_window("status-bar") else {
+            return;
+        };
+        if !status_bar.is_visible().unwrap_or(false) {
+            continue;
+        }
+        let Ok(cursor) = app.cursor_position() else { continue };
+        let monitors = match status_bar.available_monitors() {
+            Ok(m) if !m.is_empty() => m,
+            _ => continue,
+        };
+        let Some(idx) = monitor_for_cursor(&monitors, cursor) else { continue };
+        let monitor = &monitors[idx];
+        let name = monitor.name().cloned();
+        if name != last_name {
+            position_status_bar(&status_bar, monitor);
+            last_name = name;
+        }
+    }
 }
 
 pub fn update_tray_icon(app: &tauri::AppHandle, state: &AppState) {
