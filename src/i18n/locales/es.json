@@ -188,7 +188,22 @@
     "about": {
       "bmc": "Buy me a coffee",
       "credits": "Hecho con Tauri, React y whisper.cpp.",
-      "legalLinks": "Legal"
+      "legalLinks": "Legal",
+      "updates": {
+        "checkButton": "Buscar actualizaciones",
+        "checking": "Buscando actualizaciones…",
+        "upToDate": "Estás en la versión más reciente.",
+        "checkAgain": "Volver a comprobar",
+        "available": "Actualización disponible: v{{version}}",
+        "updateNow": "Actualizar ahora",
+        "later": "Después",
+        "downloading": "Descargando… {{pct}} %",
+        "downloadingNoSize": "Descargando actualización…",
+        "ready": "Actualización lista. VOCA se reiniciará.",
+        "restart": "Reiniciar ahora",
+        "error": "No se pudo buscar actualizaciones.",
+        "retry": "Reintentar"
+      }
     },
     "legal": {
       "privacy": "Privacidad",
@@ -212,7 +227,9 @@
       "historyTracking": "Guardar historial",
       "historyTrackingDesc": "Las transcripciones se guardan en local y se muestran en Historial y Estadísticas.",
       "targetAppTracking": "Registrar app destino",
-      "targetAppTrackingDesc": "Recuerda en qué app pegas el texto — solo para la estadística \"App más frecuente\". Se queda en local."
+      "targetAppTrackingDesc": "Recuerda en qué app pegas el texto — solo para la estadística \"App más frecuente\". Se queda en local.",
+      "autoCheckUpdates": "Buscar actualizaciones automáticamente",
+      "autoCheckUpdatesDesc": "VOCA consulta GitHub una vez al día. No se envían datos personales."
     },
     "transcription": {
       "method": "Método",
@@ -320,5 +337,13 @@
     "add": "Añadir",
     "close": "Cerrar",
     "retry": "Reintentar"
+  },
+  "toast": {
+    "update": {
+      "greeting": "Hola.",
+      "body": "Actualización disponible: v{{version}}",
+      "update": "¿Actualizar?",
+      "later": "Después"
+    }
   }
 }

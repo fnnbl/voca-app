@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { listen } from '@tauri-apps/api/event'
 import { useAppStore } from '../stores/appStore'
 import { GeneralSettings } from './settings/GeneralSettings'
 import { TranscriptionSettings } from './settings/TranscriptionSettings'
@@ -28,6 +29,27 @@ export function SettingsPage({ settings, onSave }: Props) {
   const [active, setActive] = useState<NavId>('history')
   const [legalTab, setLegalTab] = useState<LegalTab>('privacy')
   const error = useAppStore((s) => s.error)
+  const updateAvailable = useAppStore((s) => s.updateAvailable)
+  const setUpdateAvailable = useAppStore((s) => s.setUpdateAvailable)
+
+  useEffect(() => {
+    const unlistenAvailable = listen<{ version: string; notes: string | null }>(
+      'updater://update-available',
+      (event) => {
+        setUpdateAvailable({
+          version: event.payload.version,
+          notes: event.payload.notes ?? null,
+        })
+      },
+    )
+    const unlistenNavigate = listen('updater://navigate-to-about', () => {
+      setActive('about')
+    })
+    return () => {
+      void unlistenAvailable.then((fn) => fn())
+      void unlistenNavigate.then((fn) => fn())
+    }
+  }, [setUpdateAvailable])
 
   function openLegal(tab: LegalTab) {
     setLegalTab(tab)
@@ -80,7 +102,14 @@ export function SettingsPage({ settings, onSave }: Props) {
           <NavItem id="general" active={active} onClick={setActive} icon={<SettingsIcon />}>
             {t('settings.nav.general')}
           </NavItem>
-          <NavItem id="about" active={active} onClick={setActive} icon={<InfoIcon />} variant="bottom">
+          <NavItem
+            id="about"
+            active={active}
+            onClick={setActive}
+            icon={<InfoIcon />}
+            variant="bottom"
+            hasDot={!!updateAvailable}
+          >
             {t('settings.nav.about', 'About')}
           </NavItem>
         </nav>
@@ -116,7 +145,7 @@ export function SettingsPage({ settings, onSave }: Props) {
 }
 
 function NavItem({
-  id, active, onClick, icon, kbd, children, variant,
+  id, active, onClick, icon, kbd, children, variant, hasDot,
 }: {
   id: NavId
   active: NavId
@@ -125,6 +154,7 @@ function NavItem({
   kbd?: string
   children: ReactNode
   variant?: 'bottom'
+  hasDot?: boolean
 }) {
   const variantClass = variant === 'bottom' ? ' is-bottom' : ''
   return (
@@ -134,6 +164,7 @@ function NavItem({
     >
       {icon}
       <span>{children}</span>
+      {hasDot && <span className="nav-dot" aria-hidden="true" />}
       {kbd && <span className="nav-kbd">{kbd}</span>}
     </button>
   )

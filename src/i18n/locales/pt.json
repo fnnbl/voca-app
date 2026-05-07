@@ -188,7 +188,22 @@
     "about": {
       "bmc": "Buy me a coffee",
       "credits": "Construído com Tauri, React e whisper.cpp.",
-      "legalLinks": "Legal"
+      "legalLinks": "Legal",
+      "updates": {
+        "checkButton": "Procurar atualizações",
+        "checking": "A procurar atualizações…",
+        "upToDate": "Estás na versão mais recente.",
+        "checkAgain": "Procurar novamente",
+        "available": "Atualização disponível: v{{version}}",
+        "updateNow": "Atualizar agora",
+        "later": "Depois",
+        "downloading": "A transferir… {{pct}} %",
+        "downloadingNoSize": "A transferir atualização…",
+        "ready": "Atualização pronta. O VOCA vai reiniciar.",
+        "restart": "Reiniciar agora",
+        "error": "Não foi possível procurar atualizações.",
+        "retry": "Tentar novamente"
+      }
     },
     "legal": {
       "privacy": "Privacidade",
@@ -212,7 +227,9 @@
       "historyTracking": "Guardar histórico",
       "historyTrackingDesc": "As transcrições são guardadas localmente e mostradas em Histórico e Stats.",
       "targetAppTracking": "Registar app de destino",
-      "targetAppTrackingDesc": "Lembra em que app colas o texto — só para a estatística \"App mais frequente\". Fica em local."
+      "targetAppTrackingDesc": "Lembra em que app colas o texto — só para a estatística \"App mais frequente\". Fica em local.",
+      "autoCheckUpdates": "Procurar atualizações automaticamente",
+      "autoCheckUpdatesDesc": "O VOCA consulta o GitHub uma vez por dia. Não são enviados dados pessoais."
     },
     "transcription": {
       "method": "Método",
@@ -320,5 +337,13 @@
     "add": "Adicionar",
     "close": "Fechar",
     "retry": "Tentar novamente"
+  },
+  "toast": {
+    "update": {
+      "greeting": "Olá.",
+      "body": "Atualização disponível: v{{version}}",
+      "update": "Atualizar?",
+      "later": "Depois"
+    }
   }
 }
