@@ -59,6 +59,27 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build -- --bundles nsis
 
+      - name: List bundle directory (diagnostic)
+        if: always()
+        shell: bash
+        run: |
+          echo "=== bundle/nsis contents ==="
+          ls -la src-tauri/target/release/bundle/nsis/ 2>&1 || true
+          echo "=== signing env-var presence (no values printed) ==="
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY: NOT SET"
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY: SET (length=${#TAURI_SIGNING_PRIVATE_KEY})"
+          fi
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD: NOT SET (or empty)"
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD: SET (length=${#TAURI_SIGNING_PRIVATE_KEY_PASSWORD})"
+          fi
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
@@ -91,22 +112,35 @@ jobs:
         run: |
           set -e
           VERSION="${GITHUB_REF#refs/tags/v}"
-          INSTALLER=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)
-          SIG_FILE="${INSTALLER}.sig"
-          if [ ! -f "$SIG_FILE" ]; then
-            echo "ERROR: signature file not found at $SIG_FILE"
-            echo "TAURI_SIGNING_PRIVATE_KEY secret may not be set, or the build did not sign."
+          # Tauri 2 produces a .nsis.zip "updater bundle" alongside the .exe
+          # when bundle.createUpdaterArtifacts is true. The .sig pertains to
+          # the .nsis.zip — that's what the updater plugin downloads and
+          # verifies, then it extracts and runs the installer inside.
+          ZIP_FILE=$(ls src-tauri/target/release/bundle/nsis/*-setup.nsis.zip 2>/dev/null | head -1 || true)
+          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: NSIS updater bundle (.nsis.zip) not produced."
+            echo "Check that bundle.createUpdaterArtifacts is true in tauri.conf.json"
+            echo "and that TAURI_SIGNING_PRIVATE_KEY env var was set during build."
+            echo "See the diagnostic step earlier in this run for bundle directory contents."
             exit 1
           fi
-          INSTALLER_NAME=$(basename "$INSTALLER")
-          INSTALLER_URL="https://github.com/fnnbl/voca-app/releases/download/v${VERSION}/${INSTALLER_NAME}"
+          SIG_FILE="${ZIP_FILE}.sig"
+          if [ ! -f "$SIG_FILE" ]; then
+            echo "ERROR: signature file not found at $SIG_FILE"
+            echo "The .nsis.zip exists but no .sig was produced. Likely cause:"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD secret value did not match"
+            echo "the password used when generating the keypair (or empty-vs-set mismatch)."
+            exit 1
+          fi
+          ZIP_NAME=$(basename "$ZIP_FILE")
+          ZIP_URL="https://github.com/fnnbl/voca-app/releases/download/v${VERSION}/${ZIP_NAME}"
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -n \
             --arg version "$VERSION" \
             --arg notes "See the GitHub release for changes." \
             --arg pub_date "$PUB_DATE" \
             --rawfile signature "$SIG_FILE" \
-            --arg url "$INSTALLER_URL" \
+            --arg url "$ZIP_URL" \
             '{
               version: $version,
               notes: $notes,
@@ -127,6 +161,7 @@ jobs:
         with:
           files: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.nsis.zip
             sbom.cyclonedx.json
             sbom.spdx.json
             latest.json
