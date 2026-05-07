@@ -71,9 +71,10 @@ export function GeneralSettings({ settings, onChange }: Props) {
 
   const historyTracking = settings.privacy?.historyTracking ?? true
   const targetAppTracking = settings.privacy?.targetAppTracking ?? false
+  const autoCheckUpdates = settings.privacy?.autoCheckUpdates ?? false
 
-  function togglePrivacy(key: 'historyTracking' | 'targetAppTracking') {
-    const current = { historyTracking, targetAppTracking }
+  function togglePrivacy(key: 'historyTracking' | 'targetAppTracking' | 'autoCheckUpdates') {
+    const current = { historyTracking, targetAppTracking, autoCheckUpdates }
     const next = { ...current, [key]: !current[key] }
     // Turning the master off implicitly disables the sub-toggle so we never
     // persist a contradictory "history off, target-app on" state.
@@ -181,6 +182,18 @@ export function GeneralSettings({ settings, onChange }: Props) {
           onClick={() => togglePrivacy('targetAppTracking')}
           className={`v-switch${targetAppTracking && historyTracking ? ' on' : ''}`}
           style={{ opacity: historyTracking ? 1 : 0.4, cursor: historyTracking ? 'pointer' : 'not-allowed' }}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.privacy.autoCheckUpdates')}
+        description={t('settings.privacy.autoCheckUpdatesDesc')}
+      >
+        <button
+          role="switch"
+          aria-checked={autoCheckUpdates}
+          onClick={() => togglePrivacy('autoCheckUpdates')}
+          className={`v-switch${autoCheckUpdates ? ' on' : ''}`}
         />
       </SettingRow>
     </div>

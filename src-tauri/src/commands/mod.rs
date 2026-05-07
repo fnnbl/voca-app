@@ -136,6 +136,34 @@ pub fn show_pill(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Dismiss the update-toast speech bubble. Called when the user clicks
+/// "Später" or after the auto-dismiss timeout.
+#[tauri::command]
+pub fn dismiss_update_toast(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(toast) = app.get_webview_window("update-toast") {
+        toast.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// User clicked "Update?" on the speech bubble. Hide the toast, surface
+/// the main window, and tell the frontend to switch to the About page so
+/// the user can see the full update flow there.
+#[tauri::command]
+pub fn accept_update_toast(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(toast) = app.get_webview_window("update-toast") {
+        let _ = toast.hide();
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.unminimize();
+        let _ = main.show();
+        let _ = main.set_focus();
+        main.emit("updater://navigate-to-about", ())
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn get_model_status(app: tauri::AppHandle, size: String) -> Result<ModelStatus, String> {
     let path = model_path(&app, &size)?;

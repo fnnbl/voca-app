@@ -515,7 +515,8 @@ pub(crate) fn defaults() -> serde_json::Value {
         },
         "privacy": {
             "historyTracking": true,
-            "targetAppTracking": false
+            "targetAppTracking": false,
+            "autoCheckUpdates": false
         }
     })
 }
@@ -644,6 +645,22 @@ mod tests {
         let d = defaults();
         assert_eq!(d["privacy"]["historyTracking"], true);
         assert_eq!(d["privacy"]["targetAppTracking"], false);
+    }
+
+    #[test]
+    fn defaults_auto_check_updates_is_off() {
+        // Opt-in only — outbound network call to GitHub on launch should
+        // not happen without explicit user consent.
+        assert_eq!(defaults()["privacy"]["autoCheckUpdates"], false);
+    }
+
+    #[test]
+    fn merge_fills_missing_auto_check_updates_with_false() {
+        let loaded = serde_json::json!({
+            "privacy": { "historyTracking": true, "targetAppTracking": false }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["privacy"]["autoCheckUpdates"], false);
     }
 
     // ── merge_defaults ────────────────────────────────────────────────────────

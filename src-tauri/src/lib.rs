@@ -19,7 +19,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
 
 use audio::{AudioBuffer, AudioRecordingState};
@@ -88,6 +88,8 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppStateManager(Mutex::new(AppState::Idle)))
         .manage(AudioRecordingState::new())
         .manage(AudioBuffer(Mutex::new(None)))
@@ -183,6 +185,34 @@ pub fn run() {
                 });
             }
 
+            if let Some(toast) = app.get_webview_window("update-toast") {
+                // The toast stays hidden in tauri.conf.json (`visible: false`).
+                // Position is set lazily in `show_update_toast` based on the
+                // pill's current monitor. Always-on-top is asserted here since
+                // the config flag is non-persistent across hide/show on
+                // Windows, same caveat as the pill.
+                let _ = toast.set_always_on_top(true);
+            }
+
+            // Optional auto-update check on launch. Default OFF — opt-in via
+            // Settings → Privacy → "Check for updates automatically". Skipped
+            // during onboarding because the feature surface isn't reachable
+            // yet anyway. Delayed by 5s so the boot path stays responsive.
+            let auto_check_enabled = {
+                let handle = app.handle();
+                let settings = crate::storage::load(handle).unwrap_or_default();
+                settings["privacy"]["autoCheckUpdates"]
+                    .as_bool()
+                    .unwrap_or(false)
+            };
+            if onboarding_done && auto_check_enabled {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    check_for_updates_silently(app_handle).await;
+                });
+            }
+
             if let Some(main) = app.get_webview_window("main") {
                 // Use small icon for title bar — avoids Windows scaling artefacts
                 if let Ok(icon) = tauri::image::Image::from_bytes(
@@ -253,6 +283,8 @@ pub fn run() {
             commands::set_audio_device,
             commands::unlock_recording,
             commands::show_pill,
+            commands::dismiss_update_toast,
+            commands::accept_update_toast,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -306,9 +338,100 @@ async fn watch_active_monitor(app: tauri::AppHandle, initial_monitor_name: Optio
         let name = monitor.name().cloned();
         if name != last_name {
             position_status_bar(&status_bar, monitor);
+            // If the toast is currently visible, keep it pinned to the same
+            // active monitor. We don't re-position when hidden because the
+            // next `show_update_toast` call repositions on its own.
+            if let Some(toast) = app.get_webview_window("update-toast") {
+                if toast.is_visible().unwrap_or(false) {
+                    position_update_toast(&toast, monitor);
+                }
+            }
             last_name = name;
         }
     }
+}
+
+/// Position the update-toast window above the pill on the given monitor,
+/// horizontally centred over the pill. Pill anchor math mirrors the
+/// `position_status_bar` formula so the two stay aligned.
+pub fn position_update_toast(window: &tauri::WebviewWindow, monitor: &tauri::Monitor) {
+    let scale = monitor.scale_factor();
+    let size = monitor.size();
+    let origin = monitor.position();
+    let pill_w = (380.0 * scale) as i32;
+    let pill_h = (72.0 * scale) as i32;
+    let toast_w = (320.0 * scale) as i32;
+    let toast_h = (96.0 * scale) as i32;
+    let gap = (12.0 * scale) as i32;
+    let pill_x = origin.x + (size.width as i32 - pill_w) / 2;
+    let pill_y = origin.y + size.height as i32 - pill_h - (56.0 * scale) as i32;
+    let x = pill_x + (pill_w - toast_w) / 2;
+    let y = pill_y - toast_h - gap;
+    let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+}
+
+/// Background auto-check entry point. Emits `updater://update-available`
+/// to all windows when a new version is found and conditionally shows
+/// the pill speech bubble (only when the user is not actively recording —
+/// the about-nav-item dot still surfaces via the broadcast event).
+async fn check_for_updates_silently(app: tauri::AppHandle) {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = match app.updater() {
+        Ok(u) => u,
+        Err(e) => {
+            log::warn!("auto-update: failed to get updater: {}", e);
+            return;
+        }
+    };
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let payload = serde_json::json!({
+                "version": update.version,
+                "notes": update.body,
+            });
+            let _ = app.emit("updater://update-available", payload);
+            let is_idle = matches!(
+                *app.state::<AppStateManager>().0.lock().unwrap(),
+                AppState::Idle
+            );
+            if is_idle {
+                show_update_toast(&app, &update.version, update.body.as_deref());
+            }
+        }
+        Ok(None) => {}
+        Err(e) => {
+            log::warn!("auto-update check failed: {}", e);
+        }
+    }
+}
+
+/// Render the speech-bubble notification above the pill. Re-positions to
+/// the active monitor each time it is shown.
+pub fn show_update_toast(app: &tauri::AppHandle, version: &str, notes: Option<&str>) {
+    let Some(toast) = app.get_webview_window("update-toast") else {
+        return;
+    };
+    let monitors = toast.available_monitors().unwrap_or_default();
+    let cursor_monitor = app
+        .cursor_position()
+        .ok()
+        .and_then(|c| monitor_for_cursor(&monitors, c))
+        .and_then(|i| monitors.get(i).cloned());
+    let monitor = cursor_monitor
+        .or_else(|| toast.primary_monitor().ok().flatten())
+        .or_else(|| toast.current_monitor().ok().flatten());
+    if let Some(m) = &monitor {
+        position_update_toast(&toast, m);
+    }
+    let payload = serde_json::json!({
+        "version": version,
+        "notes": notes,
+    });
+    let _ = toast.emit("update-toast://show", payload);
+    let _ = toast.show();
+    // Deliberately not calling set_focus — the toast is a notification,
+    // not a workflow interruption. The user keeps focus on whatever they
+    // were doing and clicks the toast only if they want to act.
 }
 
 pub fn update_tray_icon(app: &tauri::AppHandle, state: &AppState) {

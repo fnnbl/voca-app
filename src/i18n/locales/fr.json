@@ -188,7 +188,22 @@
     "about": {
       "bmc": "Buy me a coffee",
       "credits": "Construit avec Tauri, React et whisper.cpp.",
-      "legalLinks": "Mentions légales"
+      "legalLinks": "Mentions légales",
+      "updates": {
+        "checkButton": "Rechercher des mises à jour",
+        "checking": "Recherche de mises à jour…",
+        "upToDate": "Vous êtes sur la dernière version.",
+        "checkAgain": "Vérifier à nouveau",
+        "available": "Mise à jour disponible : v{{version}}",
+        "updateNow": "Mettre à jour maintenant",
+        "later": "Plus tard",
+        "downloading": "Téléchargement… {{pct}} %",
+        "downloadingNoSize": "Téléchargement de la mise à jour…",
+        "ready": "Mise à jour prête. VOCA va redémarrer.",
+        "restart": "Redémarrer maintenant",
+        "error": "Impossible de rechercher des mises à jour.",
+        "retry": "Réessayer"
+      }
     },
     "legal": {
       "privacy": "Confidentialité",
@@ -212,7 +227,9 @@
       "historyTracking": "Conserver l'historique",
       "historyTrackingDesc": "Les transcriptions sont stockées localement et affichées dans Historique et Stats.",
       "targetAppTracking": "Enregistrer l'app cible",
-      "targetAppTrackingDesc": "Mémorise dans quelle app tu colles le texte — uniquement pour la stat \"App la plus fréquente\". Reste en local."
+      "targetAppTrackingDesc": "Mémorise dans quelle app tu colles le texte — uniquement pour la stat \"App la plus fréquente\". Reste en local.",
+      "autoCheckUpdates": "Vérifier les mises à jour automatiquement",
+      "autoCheckUpdatesDesc": "VOCA interroge GitHub une fois par jour. Aucune donnée personnelle n'est envoyée."
     },
     "transcription": {
       "method": "Méthode",
@@ -320,5 +337,13 @@
     "add": "Ajouter",
     "close": "Fermer",
     "retry": "Réessayer"
+  },
+  "toast": {
+    "update": {
+      "greeting": "Salut.",
+      "body": "Mise à jour disponible : v{{version}}",
+      "update": "Mettre à jour ?",
+      "later": "Plus tard"
+    }
   }
 }

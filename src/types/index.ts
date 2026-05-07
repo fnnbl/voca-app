@@ -63,7 +63,13 @@ export interface Settings {
   privacy: {
     historyTracking: boolean
     targetAppTracking: boolean
+    autoCheckUpdates: boolean
   }
+}
+
+export interface UpdateInfo {
+  version: string
+  notes: string | null
 }
 
 export type UiLanguage = 'de' | 'en' | 'es' | 'fr' | 'pt' | 'it'
