@@ -188,7 +188,22 @@
     "about": {
       "bmc": "Buy me a coffee",
       "credits": "Gebaut mit Tauri, React und whisper.cpp.",
-      "legalLinks": "Rechtliches"
+      "legalLinks": "Rechtliches",
+      "updates": {
+        "checkButton": "Nach Updates suchen",
+        "checking": "Suche nach Updates…",
+        "upToDate": "Du bist auf der aktuellen Version.",
+        "checkAgain": "Erneut prüfen",
+        "available": "Update verfügbar: v{{version}}",
+        "updateNow": "Jetzt aktualisieren",
+        "later": "Später",
+        "downloading": "Lädt herunter… {{pct}} %",
+        "downloadingNoSize": "Update wird geladen…",
+        "ready": "Update bereit. VOCA startet neu.",
+        "restart": "Jetzt neu starten",
+        "error": "Updates konnten nicht abgerufen werden.",
+        "retry": "Erneut versuchen"
+      }
     },
     "legal": {
       "privacy": "Datenschutz",
@@ -212,7 +227,9 @@
       "historyTracking": "Verlauf speichern",
       "historyTrackingDesc": "Transkripte werden lokal gespeichert und in History und Stats angezeigt.",
       "targetAppTracking": "Ziel-App erfassen",
-      "targetAppTrackingDesc": "Merkt sich, in welche App du einfügst – nur für die \"Häufigstes Ziel\"-Statistik. Bleibt lokal."
+      "targetAppTrackingDesc": "Merkt sich, in welche App du einfügst – nur für die \"Häufigstes Ziel\"-Statistik. Bleibt lokal.",
+      "autoCheckUpdates": "Updates automatisch prüfen",
+      "autoCheckUpdatesDesc": "VOCA fragt einmal täglich GitHub nach Updates. Es werden keine persönlichen Daten gesendet."
     },
     "transcription": {
       "method": "Methode",
@@ -320,5 +337,13 @@
     "add": "Hinzufügen",
     "close": "Schließen",
     "retry": "Erneut prüfen"
+  },
+  "toast": {
+    "update": {
+      "greeting": "Hey.",
+      "body": "Update verfügbar: v{{version}}",
+      "update": "Update?",
+      "later": "Später"
+    }
   }
 }

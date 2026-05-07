@@ -188,7 +188,22 @@
     "about": {
       "bmc": "Buy me a coffee",
       "credits": "Built with Tauri, React, and whisper.cpp.",
-      "legalLinks": "Legal"
+      "legalLinks": "Legal",
+      "updates": {
+        "checkButton": "Check for updates",
+        "checking": "Checking for updates…",
+        "upToDate": "You're on the latest version.",
+        "checkAgain": "Check again",
+        "available": "Update available: v{{version}}",
+        "updateNow": "Update now",
+        "later": "Later",
+        "downloading": "Downloading… {{pct}}%",
+        "downloadingNoSize": "Downloading update…",
+        "ready": "Update ready. VOCA will restart.",
+        "restart": "Restart now",
+        "error": "Couldn't check for updates.",
+        "retry": "Retry"
+      }
     },
     "legal": {
       "privacy": "Privacy",
@@ -212,7 +227,9 @@
       "historyTracking": "Keep transcript history",
       "historyTrackingDesc": "Transcripts are stored locally and shown in History and Stats.",
       "targetAppTracking": "Record target app",
-      "targetAppTrackingDesc": "Remembers which app you paste into — used only for the \"Most common target\" stat. Stays local."
+      "targetAppTrackingDesc": "Remembers which app you paste into — used only for the \"Most common target\" stat. Stays local.",
+      "autoCheckUpdates": "Check for updates automatically",
+      "autoCheckUpdatesDesc": "VOCA quietly checks GitHub once a day. No personal data is sent."
     },
     "transcription": {
       "method": "Method",
@@ -320,5 +337,13 @@
     "add": "Add",
     "close": "Close",
     "retry": "Retry"
+  },
+  "toast": {
+    "update": {
+      "greeting": "Hey.",
+      "body": "Update available: v{{version}}",
+      "update": "Update?",
+      "later": "Later"
+    }
   }
 }
