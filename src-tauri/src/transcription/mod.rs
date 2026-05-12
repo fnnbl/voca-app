@@ -161,7 +161,14 @@ async fn transcribe_local(
         .as_str()
         .unwrap_or("base")
         .to_owned();
-    let model_path = crate::commands::model_path(app, &model_size)?;
+    // Built-in size keywords live under models/ggml-{size}.bin; anything
+    // else is a user-imported file under models/custom/<filename>.
+    let is_builtin = matches!(model_size.as_str(), "tiny" | "base" | "small" | "medium");
+    let model_path = if is_builtin {
+        crate::commands::model_path(app, &model_size)?
+    } else {
+        crate::commands::custom_model_path(app, &model_size)?
+    };
 
     if !model_path.exists() {
         crate::errors::emit(

@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches:
+      - develop
+      - main
   pull_request:
     branches: ['**']
 
@@ -48,6 +50,7 @@ jobs:
             librsvg2-dev \
             libasound2-dev \
             libdbus-1-dev \
+            libssl-dev \
             libxcb1-dev \
             libxcb-render0-dev \
             libxcb-shape0-dev \

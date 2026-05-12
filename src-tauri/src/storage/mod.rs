@@ -492,7 +492,9 @@ pub(crate) fn defaults() -> serde_json::Value {
             "cloudCustomEndpoint": "",
             "language": "auto",
             "removeFillerWords": false,
-            "muteOtherAudio": true
+            "muteOtherAudio": true,
+            "trimSilence": true,
+            "autoStop": false
         },
         "aiEnhancement": {
             "enabled": false,
@@ -587,6 +589,20 @@ mod tests {
         // Whisperflow/VoiceInk ship. Users can opt out in Transcription
         // settings if they want other audio to keep playing during recording.
         assert_eq!(defaults()["transcription"]["muteOtherAudio"], true);
+    }
+
+    #[test]
+    fn defaults_trim_silence_is_on() {
+        // Pure quality improvement, no behavioural surprise — silence trim
+        // ships on by default and the user can opt out.
+        assert_eq!(defaults()["transcription"]["trimSilence"], true);
+    }
+
+    #[test]
+    fn defaults_auto_stop_is_off() {
+        // Behavioural change (recording ends without releasing the shortcut),
+        // so opt-in per the feature brief.
+        assert_eq!(defaults()["transcription"]["autoStop"], false);
     }
 
     #[test]

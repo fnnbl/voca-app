@@ -250,6 +250,10 @@
       },
       "muteOtherAudio": "Andere Apps während Aufnahme stummschalten",
       "muteOtherAudioDescription": "Stummt laufende Audio-Ausgabe anderer Programme (z. B. Musik, Videos) während einer Aufnahme. Nichts wird pausiert. Aktuell nur Windows.",
+      "trimSilence": "Stille vor der Transkription entfernen",
+      "trimSilenceDescription": "Schneidet führende und nachlaufende Stille aus jeder Aufnahme, bevor sie an die Transkription geht. Reduziert Whisper-Halluzinationen wie „danke fürs Zuschauen\" auf stillen Stellen.",
+      "autoStop": "Automatisch bei Stille beenden",
+      "autoStopDescription": "Wenn aktiv, endet die Aufnahme nach etwa 800 ms Stille nach gesprochenem Text. Sonst steuert der Shortcut Start und Ende weiterhin wie gewohnt.",
       "apiKey": "API Key",
       "localModel": "Lokales Modell",
       "localModelDescription": "Läuft vollständig auf deinem Gerät – kein Internet nötig",
@@ -267,6 +271,19 @@
         "elevenlabs": "ElevenLabs",
         "gemini": "Gemini",
         "custom": "Benutzerdefiniert"
+      },
+      "customModel": {
+        "heading": "Eigene Modelle",
+        "import": "Importieren…",
+        "importing": "Importiere…",
+        "empty": "Noch keine eigenen Modelle. Ziehe eine .bin-Datei hierher oder klicke auf Importieren.",
+        "remove": "Entfernen",
+        "deleteTitle": "Eigenes Modell entfernen?",
+        "deleteBody": "„{{name}}\" aus deinen eigenen Modellen entfernen? Die Datei wird vom Speicher gelöscht.",
+        "overwriteTitle": "Datei existiert bereits",
+        "overwriteBody": "Ein eigenes Modell mit diesem Namen existiert bereits. Überschreiben?",
+        "invalidTitle": "Import fehlgeschlagen",
+        "invalidBody": "Diese Datei sieht nicht wie ein whisper.cpp-Modell (.bin) aus."
       }
     },
     "shortcut": {

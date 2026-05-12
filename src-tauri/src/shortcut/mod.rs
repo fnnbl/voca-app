@@ -121,9 +121,22 @@ fn start_recording(app: &AppHandle) {
     emit_state(app, AppState::Recording);
 }
 
+/// Public entry point for triggering a normal stop from outside the
+/// shortcut module — used by the VAD auto-stop watcher when silence is
+/// detected after speech. Does the same work as the internal
+/// `stop_recording`, but no-ops if we're not currently recording so a
+/// late watcher tick doesn't fight with a manual release.
+pub fn stop_recording_external(app: &AppHandle) {
+    let state = app.state::<AppStateManager>().0.lock().unwrap().clone();
+    if state != AppState::Recording {
+        return;
+    }
+    stop_recording(app);
+}
+
 fn stop_recording(app: &AppHandle) {
     let audio = app.state::<AudioRecordingState>();
-    match crate::audio::stop(&audio) {
+    match crate::audio::stop(&audio, app) {
         Ok(wav_bytes) => {
             restore_ducked_audio(app);
             *app.state::<AudioBuffer>().0.lock().unwrap() = Some(wav_bytes);
@@ -148,7 +161,7 @@ fn cancel_recording(app: &AppHandle) {
     // Idle state emit by DOUBLE_TAP_WINDOW so a double-tap → toggle transition
     // keeps the UI pill showing continuously (no Recording→Idle→Recording flash).
     let audio = app.state::<AudioRecordingState>();
-    let _ = crate::audio::stop(&audio);
+    let _ = crate::audio::stop(&audio, app);
     restore_ducked_audio(app);
     let manager = app.state::<AppStateManager>();
     *manager.0.lock().unwrap() = AppState::Idle;

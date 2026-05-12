@@ -250,6 +250,10 @@
       },
       "muteOtherAudio": "Silenciar otras apps durante la grabación",
       "muteOtherAudioDescription": "Silencia el audio de otros programas (música, vídeos, etc.) mientras grabas. Nada se pausa. Solo Windows por ahora.",
+      "trimSilence": "Recortar silencio antes de transcribir",
+      "trimSilenceDescription": "Elimina el silencio inicial y final de cada grabación antes de enviarla al motor de transcripción. Reduce alucinaciones como \"gracias por ver\" en pasajes silenciosos.",
+      "autoStop": "Detener automáticamente al detectar silencio",
+      "autoStopDescription": "Si está activado, la grabación termina automáticamente tras unos 800 ms de silencio después del habla. De lo contrario, el atajo sigue controlando inicio y fin como siempre.",
       "apiKey": "Clave de API",
       "localModel": "Modelo local",
       "localModelDescription": "Se ejecuta íntegramente en tu dispositivo – no requiere internet",
@@ -267,6 +271,19 @@
         "elevenlabs": "ElevenLabs",
         "gemini": "Gemini",
         "custom": "Personalizado"
+      },
+      "customModel": {
+        "heading": "Modelos personalizados",
+        "import": "Importar…",
+        "importing": "Importando…",
+        "empty": "Aún no hay modelos personalizados. Arrastra un archivo .bin aquí o haz clic en Importar.",
+        "remove": "Eliminar",
+        "deleteTitle": "¿Eliminar modelo personalizado?",
+        "deleteBody": "¿Eliminar \"{{name}}\" de tus modelos personalizados? El archivo se borrará del disco.",
+        "overwriteTitle": "El archivo ya existe",
+        "overwriteBody": "Ya existe un modelo personalizado con este nombre. ¿Sobrescribirlo?",
+        "invalidTitle": "Importación fallida",
+        "invalidBody": "Este archivo no parece ser un modelo de whisper.cpp (.bin)."
       }
     },
     "shortcut": {

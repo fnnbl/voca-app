@@ -33,13 +33,17 @@ export interface AIPrompt {
 export interface Settings {
   transcription: {
     mode: 'cloud' | 'local'
-    localModelSize: 'tiny' | 'base' | 'small' | 'medium'
+    // Built-in sizes are 'tiny' | 'base' | 'small' | 'medium'; any other
+    // string identifies a user-imported model file under app_data/models/custom/.
+    localModelSize: string
     cloudProvider: 'openai' | 'groq' | 'deepgram' | 'elevenlabs' | 'gemini' | 'custom'
     cloudModel: string
     cloudCustomEndpoint: string
     language: TranscriptionLanguage
     removeFillerWords: boolean
     muteOtherAudio: boolean
+    trimSilence: boolean
+    autoStop: boolean
   }
   aiEnhancement: {
     enabled: boolean

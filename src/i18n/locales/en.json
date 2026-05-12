@@ -250,6 +250,10 @@
       },
       "muteOtherAudio": "Mute other apps while recording",
       "muteOtherAudioDescription": "Silences audio from other programs (music, videos, etc.) during recording. Nothing is paused. Windows only for now.",
+      "trimSilence": "Trim silence before transcription",
+      "trimSilenceDescription": "Cuts leading and trailing silence from each recording before sending it to the transcription engine. Reduces hallucinations like \"thanks for watching\" on silent padding.",
+      "autoStop": "Auto-stop on silence",
+      "autoStopDescription": "When enabled, the recording ends automatically after about 800 ms of silence following speech. Otherwise the shortcut still controls start and end as usual.",
       "apiKey": "API Key",
       "localModel": "Local model",
       "localModelDescription": "Runs entirely on your device – no internet required",
@@ -267,6 +271,19 @@
         "elevenlabs": "ElevenLabs",
         "gemini": "Gemini",
         "custom": "Custom"
+      },
+      "customModel": {
+        "heading": "Custom models",
+        "import": "Import…",
+        "importing": "Importing…",
+        "empty": "No custom models yet. Drop a .bin file here or click Import.",
+        "remove": "Remove",
+        "deleteTitle": "Remove custom model?",
+        "deleteBody": "Remove \"{{name}}\" from your custom models? The file will be deleted from disk.",
+        "overwriteTitle": "File already exists",
+        "overwriteBody": "A custom model with this name already exists. Overwrite it?",
+        "invalidTitle": "Import failed",
+        "invalidBody": "This file does not look like a whisper.cpp model (.bin)."
       }
     },
     "shortcut": {

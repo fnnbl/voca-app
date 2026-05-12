@@ -13,6 +13,7 @@ pub mod stats;
 pub mod storage;
 pub mod target_app;
 pub mod transcription;
+pub mod vad;
 
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -87,6 +88,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -256,6 +258,9 @@ pub fn run() {
             commands::download_model,
             commands::delete_model,
             commands::cancel_model_download,
+            commands::list_custom_models,
+            commands::import_custom_model,
+            commands::delete_custom_model,
             commands::get_prompts,
             commands::save_prompts,
             commands::save_transcription_key,
