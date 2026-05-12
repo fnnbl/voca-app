@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { open } from '@tauri-apps/plugin-shell'
+import { open as openExternal } from '@tauri-apps/plugin-shell'
+import { open as openFileDialog, ask, message } from '@tauri-apps/plugin-dialog'
 import { SettingRow } from '../../components/settings/SettingRow'
 import { TRANSCRIPTION_LANGUAGES } from '../../types'
 import type { Settings, TranscriptionLanguage } from '../../types'
@@ -107,6 +108,11 @@ interface DownloadProgress {
   total_bytes: number
 }
 
+interface CustomModelInfo {
+  filename: string
+  size_bytes: number
+}
+
 const MODEL_SIZES: { value: ModelSize; label: string; approxMb: number }[] = [
   { value: 'tiny', label: 'Tiny', approxMb: 75 },
   { value: 'base', label: 'Base', approxMb: 142 },
@@ -128,6 +134,9 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null)
   const [providerKey, setProviderKey] = useState('')
   const [keyDirty, setKeyDirty] = useState(false)
+  const [customModels, setCustomModels] = useState<CustomModelInfo[]>([])
+  const [importing, setImporting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
     MODEL_SIZES.forEach(({ value }) => {
@@ -135,6 +144,19 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
         .then((status) => setModelStatuses((prev) => ({ ...prev, [value]: status })))
         .catch(() => {})
     })
+  }, [])
+
+  async function refreshCustomModels() {
+    try {
+      const list = await invoke<CustomModelInfo[]>('list_custom_models')
+      setCustomModels(list)
+    } catch (e) {
+      console.error('list_custom_models failed:', e)
+    }
+  }
+
+  useEffect(() => {
+    refreshCustomModels()
   }, [])
 
   useEffect(() => {
@@ -151,6 +173,26 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
     })
     return () => { unlisten.then((fn) => fn()) }
   }, [])
+
+  useEffect(() => {
+    if (!isLocal) return
+    const unlistens: Array<Promise<() => void>> = []
+    unlistens.push(listen('tauri://drag-enter', () => setDragOver(true)))
+    unlistens.push(listen('tauri://drag-leave', () => setDragOver(false)))
+    unlistens.push(
+      listen<{ paths: string[] }>('tauri://drag-drop', async (event) => {
+        setDragOver(false)
+        const binPaths = event.payload.paths.filter((p) => p.toLowerCase().endsWith('.bin'))
+        for (const path of binPaths) {
+          await importPath(path)
+        }
+      }),
+    )
+    return () => {
+      unlistens.forEach((p) => p.then((fn) => fn()))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocal])
 
   function handleProviderChange(provider: CloudProvider) {
     onChange({
@@ -178,8 +220,75 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
     onChange({ ...settings, transcription: { ...settings.transcription, muteOtherAudio: next } })
   }
 
-  function handleModelSizeChange(size: ModelSize) {
+  function handleModelSizeChange(size: string) {
     onChange({ ...settings, transcription: { ...settings.transcription, localModelSize: size } })
+  }
+
+  async function importPath(path: string) {
+    setImporting(true)
+    try {
+      await invoke('import_custom_model', { sourcePath: path, overwrite: false })
+      await refreshCustomModels()
+    } catch (err) {
+      const msg = String(err)
+      if (msg.includes('MODEL_ALREADY_EXISTS')) {
+        const confirmed = await ask(t('settings.transcription.customModel.overwriteBody'), {
+          title: t('settings.transcription.customModel.overwriteTitle'),
+          kind: 'warning',
+        })
+        if (confirmed) {
+          try {
+            await invoke('import_custom_model', { sourcePath: path, overwrite: true })
+            await refreshCustomModels()
+          } catch (e2) {
+            console.error('Import (overwrite) failed:', e2)
+          }
+        }
+      } else if (msg.includes('INVALID_MODEL')) {
+        await message(t('settings.transcription.customModel.invalidBody'), {
+          title: t('settings.transcription.customModel.invalidTitle'),
+          kind: 'error',
+        })
+      } else {
+        console.error('Import failed:', err)
+      }
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function handleImportClick() {
+    if (importing) return
+    const selected = await openFileDialog({
+      multiple: false,
+      filters: [{ name: 'Whisper model', extensions: ['bin'] }],
+    })
+    if (typeof selected === 'string') {
+      await importPath(selected)
+    }
+  }
+
+  async function handleDeleteCustom(filename: string) {
+    const confirmed = await ask(
+      t('settings.transcription.customModel.deleteBody', { name: filename }),
+      {
+        title: t('settings.transcription.customModel.deleteTitle'),
+        kind: 'warning',
+      },
+    )
+    if (!confirmed) return
+    try {
+      await invoke('delete_custom_model', { filename })
+      await refreshCustomModels()
+      if (selectedSize === filename) {
+        onChange({
+          ...settings,
+          transcription: { ...settings.transcription, localModelSize: 'base' },
+        })
+      }
+    } catch (e) {
+      console.error('Delete custom model failed:', e)
+    }
   }
 
   async function handleDownload(size: ModelSize) {
@@ -324,7 +433,7 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
               <div className="flex flex-col gap-1.5 w-full max-w-xs">
                 {providerMeta.keyLink && (
                   <button
-                    onClick={() => open(providerMeta.keyLink!)}
+                    onClick={() => openExternal(providerMeta.keyLink!)}
                     className="flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs border border-accent/40 text-accent rounded-lg hover:bg-accent-subtle transition-colors"
                   >
                     Get API key for {providerMeta.label} <ExternalLinkIcon />
@@ -349,7 +458,11 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
           label={t('settings.transcription.localModel')}
           description={t('settings.transcription.localModelDescription')}
         >
-          <div className="space-y-3">
+          <div
+            className={`space-y-3 rounded-lg transition-all ${
+              dragOver ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''
+            }`}
+          >
             <div className="space-y-1">
               {MODEL_SIZES.map(({ value, label, approxMb }) => {
                 const status = modelStatuses[value]
@@ -421,6 +534,69 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
                   </div>
                 )
               })}
+            </div>
+
+            <div className="space-y-1 pt-3 border-t border-border">
+              <div className="flex items-center justify-between pb-1.5">
+                <span className="text-xs text-text-muted uppercase tracking-wide">
+                  {t('settings.transcription.customModel.heading')}
+                </span>
+                <button
+                  onClick={handleImportClick}
+                  disabled={importing}
+                  className="text-xs px-2 py-1 border border-border rounded hover:border-border-hover text-text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {importing
+                    ? t('settings.transcription.customModel.importing')
+                    : t('settings.transcription.customModel.import')}
+                </button>
+              </div>
+
+              {customModels.length === 0 ? (
+                <div className="text-xs text-text-muted px-3 py-4 text-center border border-dashed border-border rounded-lg">
+                  {t('settings.transcription.customModel.empty')}
+                </div>
+              ) : (
+                customModels.map((m) => {
+                  const isSelected = selectedSize === m.filename
+                  return (
+                    <div
+                      key={m.filename}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg border transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'border-accent bg-accent-subtle'
+                          : 'border-border hover:border-border-hover'
+                      }`}
+                      onClick={() => handleModelSizeChange(m.filename)}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
+                            isSelected ? 'border-accent bg-accent' : 'border-border'
+                          }`}
+                        />
+                        <span className="text-sm text-text font-medium truncate" title={m.filename}>
+                          {m.filename}
+                        </span>
+                        <span className="text-xs text-text-muted flex-shrink-0">
+                          {formatBytes(m.size_bytes)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteCustom(m.filename)
+                          }}
+                          className="text-xs px-2 py-1 border border-border rounded hover:border-red-500/50 text-text-muted hover:text-red-500 transition-colors"
+                        >
+                          {t('settings.transcription.customModel.remove')}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
         </SettingRow>
