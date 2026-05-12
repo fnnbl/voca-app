@@ -347,7 +347,15 @@ input[type="password"]::-ms-reveal { display: none; }
 .shell-foot .lbl { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--v-ink-3); flex-shrink: 0; }
 .shell-foot .shortcut-badge { margin-left: auto; min-width: 0; font-family: var(--f-mono); font-size: 10px; color: var(--v-ink-2); background: var(--v-bg); padding: 2px 6px; border-radius: var(--r-1); border: 1px solid var(--v-line-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shell-main { flex: 1; overflow-y: auto; background: var(--v-surface); }
-.shell-main-pad { padding: 32px 44px 44px; max-width: 720px; margin: 0 auto; }
+/* Default page width — regime A from #70. The cap framing on wider
+   windows is intentional; without it, content stays at its native
+   ~720px and looks stranded on big monitors. */
+.shell-main-pad { padding: 32px 44px 44px; max-width: 1200px; margin: 0 auto; }
+/* Regime B from #70 — applied on list-heavy pages (History, Snippets,
+   Dictionary, Fillers) so the extra horizontal space actually carries
+   content (more chips per row, less truncated transcript lines) rather
+   than being framed away. */
+.shell-main-pad.breathe { max-width: 1600px; }
 
 /* ============================================================
    Status Pill
