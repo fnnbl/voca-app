@@ -220,6 +220,16 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
     onChange({ ...settings, transcription: { ...settings.transcription, muteOtherAudio: next } })
   }
 
+  function toggleTrimSilence() {
+    const next = !(settings.transcription.trimSilence ?? true)
+    onChange({ ...settings, transcription: { ...settings.transcription, trimSilence: next } })
+  }
+
+  function toggleAutoStop() {
+    const next = !(settings.transcription.autoStop ?? false)
+    onChange({ ...settings, transcription: { ...settings.transcription, autoStop: next } })
+  }
+
   function handleModelSizeChange(size: string) {
     onChange({ ...settings, transcription: { ...settings.transcription, localModelSize: size } })
   }
@@ -373,6 +383,30 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
           aria-checked={settings.transcription.muteOtherAudio ?? true}
           onClick={toggleMuteOtherAudio}
           className={`v-switch${(settings.transcription.muteOtherAudio ?? true) ? ' on' : ''}`}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.transcription.trimSilence')}
+        description={t('settings.transcription.trimSilenceDescription')}
+      >
+        <button
+          role="switch"
+          aria-checked={settings.transcription.trimSilence ?? true}
+          onClick={toggleTrimSilence}
+          className={`v-switch${(settings.transcription.trimSilence ?? true) ? ' on' : ''}`}
+        />
+      </SettingRow>
+
+      <SettingRow
+        label={t('settings.transcription.autoStop')}
+        description={t('settings.transcription.autoStopDescription')}
+      >
+        <button
+          role="switch"
+          aria-checked={settings.transcription.autoStop ?? false}
+          onClick={toggleAutoStop}
+          className={`v-switch${(settings.transcription.autoStop ?? false) ? ' on' : ''}`}
         />
       </SettingRow>
 
