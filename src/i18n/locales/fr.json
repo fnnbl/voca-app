@@ -267,6 +267,19 @@
         "elevenlabs": "ElevenLabs",
         "gemini": "Gemini",
         "custom": "Personnalisé"
+      },
+      "customModel": {
+        "heading": "Modèles personnalisés",
+        "import": "Importer…",
+        "importing": "Importation…",
+        "empty": "Aucun modèle personnalisé pour l'instant. Glissez un fichier .bin ici ou cliquez sur Importer.",
+        "remove": "Supprimer",
+        "deleteTitle": "Supprimer le modèle personnalisé ?",
+        "deleteBody": "Supprimer « {{name}} » de vos modèles personnalisés ? Le fichier sera supprimé du disque.",
+        "overwriteTitle": "Le fichier existe déjà",
+        "overwriteBody": "Un modèle personnalisé portant ce nom existe déjà. Voulez-vous l'écraser ?",
+        "invalidTitle": "Échec de l'importation",
+        "invalidBody": "Ce fichier ne ressemble pas à un modèle whisper.cpp (.bin)."
       }
     },
     "shortcut": {

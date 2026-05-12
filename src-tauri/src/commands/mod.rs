@@ -266,6 +266,142 @@ pub fn cancel_model_download(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone, serde::Serialize)]
+pub struct CustomModelInfo {
+    pub filename: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct ImportModelResult {
+    pub filename: String,
+    pub size_bytes: u64,
+}
+
+/// Whisper.cpp model files start with magic bytes. The legacy GGML
+/// format uses ASCII `ggml`; the newer GGUF format uses ASCII `GGUF`.
+/// Anything else is rejected before we let `whisper-rs` try to load it
+/// (which would otherwise abort the whole process on malformed input).
+fn validate_whisper_model_magic(path: &std::path::Path) -> Result<(), String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    let mut header = [0u8; 4];
+    file.read_exact(&mut header)
+        .map_err(|_| "INVALID_MODEL: file too short to be a Whisper model".to_string())?;
+    if &header == b"ggml" || &header == b"GGUF" {
+        Ok(())
+    } else {
+        Err("INVALID_MODEL: not a whisper.cpp compatible model (expected ggml or GGUF header)".to_string())
+    }
+}
+
+/// Accepts only safe basenames with a `.bin` extension (case-insensitive
+/// on the extension, original case preserved on the stem). Anything that
+/// looks like a path component, hidden file, or contains characters that
+/// are invalid on Windows is rejected.
+fn sanitise_model_filename(raw: &str) -> Result<String, String> {
+    if !raw.to_ascii_lowercase().ends_with(".bin") {
+        return Err("INVALID_MODEL: file must have a .bin extension".to_string());
+    }
+    let stem = &raw[..raw.len() - 4];
+    if stem.is_empty()
+        || stem.starts_with('.')
+        || stem.contains('/')
+        || stem.contains('\\')
+        || stem.contains("..")
+        || stem
+            .chars()
+            .any(|c| matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*' | '\0'))
+    {
+        return Err("INVALID_MODEL: filename contains invalid characters".to_string());
+    }
+    Ok(format!("{stem}.bin"))
+}
+
+pub fn custom_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|p| p.join("models").join("custom"))
+        .map_err(|e| format!("STORAGE_ERROR: {e}"))
+}
+
+pub fn custom_model_path(app: &tauri::AppHandle, filename: &str) -> Result<PathBuf, String> {
+    let safe = sanitise_model_filename(filename)?;
+    Ok(custom_models_dir(app)?.join(safe))
+}
+
+#[tauri::command]
+pub fn list_custom_models(app: tauri::AppHandle) -> Result<Vec<CustomModelInfo>, String> {
+    let dir = custom_models_dir(&app)?;
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&dir).map_err(|e| format!("STORAGE_ERROR: {e}"))? {
+        let entry = entry.map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let filename = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) if n.to_ascii_lowercase().ends_with(".bin") => n.to_owned(),
+            _ => continue,
+        };
+        let size_bytes = path.metadata().map(|m| m.len()).unwrap_or(0);
+        out.push(CustomModelInfo { filename, size_bytes });
+    }
+    out.sort_by(|a, b| a.filename.to_ascii_lowercase().cmp(&b.filename.to_ascii_lowercase()));
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn import_custom_model(
+    app: tauri::AppHandle,
+    source_path: String,
+    overwrite: bool,
+) -> Result<ImportModelResult, String> {
+    let source = std::path::PathBuf::from(&source_path);
+    let raw_name = source
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| "INVALID_MODEL: source path has no filename".to_string())?
+        .to_owned();
+    let filename = sanitise_model_filename(&raw_name)?;
+
+    validate_whisper_model_magic(&source)?;
+
+    let dest = custom_model_path(&app, &filename)?;
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    }
+
+    if dest.exists() && !overwrite {
+        return Err("MODEL_ALREADY_EXISTS".to_string());
+    }
+
+    // Stage via a sibling .tmp then atomic-rename so a partial copy
+    // (interrupted multi-GB transfer) never appears in the model list.
+    let tmp = dest.with_extension("bin.tmp");
+    tokio::fs::copy(&source, &tmp)
+        .await
+        .map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    tokio::fs::rename(&tmp, &dest)
+        .await
+        .map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+
+    let size_bytes = dest.metadata().map(|m| m.len()).unwrap_or(0);
+    Ok(ImportModelResult { filename, size_bytes })
+}
+
+#[tauri::command]
+pub fn delete_custom_model(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+    let dest = custom_model_path(&app, &filename)?;
+    if dest.exists() {
+        std::fs::remove_file(&dest).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn save_transcription_key(provider: String, value: String) -> Result<(), String> {
     keychain::save_transcription_key(&provider, &value)
@@ -449,4 +585,71 @@ pub fn model_path(app: &tauri::AppHandle, size: &str) -> Result<PathBuf, String>
         .app_data_dir()
         .map(|p| p.join("models").join(format!("ggml-{size}.bin")))
         .map_err(|e| format!("STORAGE_ERROR: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn sanitise_accepts_normal_basename() {
+        assert_eq!(sanitise_model_filename("my-model.bin").unwrap(), "my-model.bin");
+        assert_eq!(sanitise_model_filename("ggml-large-v3.bin").unwrap(), "ggml-large-v3.bin");
+        assert_eq!(sanitise_model_filename("German_Fine_Tune.BIN").unwrap(), "German_Fine_Tune.bin");
+    }
+
+    #[test]
+    fn sanitise_rejects_path_components() {
+        assert!(sanitise_model_filename("../escape.bin").is_err());
+        assert!(sanitise_model_filename("dir/model.bin").is_err());
+        assert!(sanitise_model_filename("dir\\model.bin").is_err());
+    }
+
+    #[test]
+    fn sanitise_rejects_non_bin() {
+        assert!(sanitise_model_filename("model.txt").is_err());
+        assert!(sanitise_model_filename("model").is_err());
+        assert!(sanitise_model_filename(".bin").is_err());
+    }
+
+    #[test]
+    fn sanitise_rejects_windows_reserved_chars() {
+        assert!(sanitise_model_filename("a:b.bin").is_err());
+        assert!(sanitise_model_filename("a*b.bin").is_err());
+        assert!(sanitise_model_filename("a?b.bin").is_err());
+        assert!(sanitise_model_filename("a|b.bin").is_err());
+    }
+
+    fn write_temp(bytes: &[u8]) -> tempfile::NamedTempFile {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        f.write_all(bytes).unwrap();
+        f
+    }
+
+    #[test]
+    fn magic_accepts_ggml_header() {
+        let f = write_temp(b"ggml\0\0\0\0extra bytes");
+        assert!(validate_whisper_model_magic(f.path()).is_ok());
+    }
+
+    #[test]
+    fn magic_accepts_gguf_header() {
+        let f = write_temp(b"GGUF\0\0\0\0extra bytes");
+        assert!(validate_whisper_model_magic(f.path()).is_ok());
+    }
+
+    #[test]
+    fn magic_rejects_garbage() {
+        let f = write_temp(b"not a model file at all");
+        let err = validate_whisper_model_magic(f.path()).unwrap_err();
+        assert!(err.contains("INVALID_MODEL"));
+    }
+
+    #[test]
+    fn magic_rejects_too_short_file() {
+        let f = write_temp(b"gg");
+        let err = validate_whisper_model_magic(f.path()).unwrap_err();
+        assert!(err.contains("INVALID_MODEL"));
+    }
 }
