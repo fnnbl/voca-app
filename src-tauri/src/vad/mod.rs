@@ -13,7 +13,9 @@ use tauri::AppHandle;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const AUTO_STOP_SILENCE_MS: u64 = 800;
-const TRIM_PAD_SECONDS: f32 = 0.1;
+// Silero's SpeechSegment returns seconds as f64 — keep the arithmetic in
+// f64 throughout the trim path and only narrow to usize when indexing.
+const TRIM_PAD_SECONDS: f64 = 0.1;
 
 /// Apply Silero VAD over a recorded buffer and trim leading + trailing
 /// silence. Falls back to returning the original buffer when no speech
@@ -58,7 +60,7 @@ pub fn trim_silence(samples: &[f32], sample_rate: u32, channels: u16) -> Vec<f32
     let start_s = (first.start_seconds() - TRIM_PAD_SECONDS).max(0.0);
     let end_s = last.end_seconds() + TRIM_PAD_SECONDS;
 
-    let samples_per_second = sample_rate as f32 * channels as f32;
+    let samples_per_second = sample_rate as f64 * channels as f64;
     let start_idx = (start_s * samples_per_second) as usize;
     let end_idx = ((end_s * samples_per_second) as usize).min(samples.len());
 
@@ -170,14 +172,21 @@ pub fn start_auto_stop_watcher(
             };
 
             let mono_16k = resample_to_mono_16k(&new_samples, sample_rate, channels);
-            let mut segment_ended = false;
-            let _ = segmenter.process_samples(&mut session, &mut stream, &mono_16k, |_seg| {
-                segment_ended = true;
-            });
-
-            if segment_ended {
-                crate::shortcut::stop_recording_external(&app);
-                return;
+            // `push_samples` returns `Some(segment)` when a closed
+            // segment falls out of the streaming pipeline — i.e. the
+            // user spoke and went silent for `AUTO_STOP_SILENCE_MS`.
+            // That's our auto-stop trigger; one segment is enough to
+            // end the recording.
+            match segmenter.push_samples(&mut session, &mut stream, &mono_16k) {
+                Ok(Some(_segment)) => {
+                    crate::shortcut::stop_recording_external(&app);
+                    return;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    log::error!("VAD watcher: push_samples failed: {e}");
+                    return;
+                }
             }
         }
     });
