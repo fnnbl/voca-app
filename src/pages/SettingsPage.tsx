@@ -19,6 +19,11 @@ import { formatShortcut } from '../shortcut/format'
 type NavId = 'history' | 'stats' | 'transcription' | 'ai' | 'snippets' | 'dictionary' | 'fillers' | 'general' | 'about' | 'legal'
 type LegalTab = 'privacy' | 'terms'
 
+// Pages whose content benefits from the wider regime-B layout. List-heavy
+// pages get more chips/rows per line; the others stay at the 1200 cap so
+// SettingRow descriptions and form copy remain readable.
+const BREATHE_PAGES: ReadonlySet<NavId> = new Set(['history', 'snippets', 'dictionary', 'fillers'])
+
 interface Props {
   settings: Settings
   onSave: (updated: Settings) => Promise<void>
@@ -122,7 +127,7 @@ export function SettingsPage({ settings, onSave }: Props) {
       </aside>
 
       <main className="shell-main">
-        <div className="shell-main-pad">
+        <div className={`shell-main-pad${BREATHE_PAGES.has(active) ? ' breathe' : ''}`}>
           {error && (
             <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 'var(--r-2)', background: 'var(--v-accent-soft)', border: '1px solid var(--v-danger)', color: 'var(--v-danger)', fontFamily: 'var(--f-mono)', fontSize: 12 }}>
               {t(`errors.${camelCode(error.code)}`, error.message)}
