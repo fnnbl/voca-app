@@ -15,6 +15,9 @@ pub struct AudioRecordingState {
     pub buffer: Arc<Mutex<Vec<f32>>>,
     pub sample_rate: Mutex<u32>,
     pub channels: Mutex<u16>,
+    /// Holds the VAD auto-stop watcher while a recording is active.
+    /// Dropping the value signals the watcher thread to exit.
+    pub auto_stop_watcher: Mutex<Option<crate::vad::AutoStopWatcher>>,
 }
 
 // cpal::Stream is !Send on Linux (ALSA). All access is serialized via Mutex, so this is safe.
@@ -28,6 +31,7 @@ impl AudioRecordingState {
             buffer: Arc::new(Mutex::new(Vec::new())),
             sample_rate: Mutex::new(16000),
             channels: Mutex::new(1),
+            auto_stop_watcher: Mutex::new(None),
         }
     }
 }
@@ -61,27 +65,53 @@ pub fn start(
         .default_input_config()
         .map_err(|e| format!("MICROPHONE_UNAVAILABLE: {e}"))?;
 
-    *audio.sample_rate.lock().unwrap() = config.sample_rate().0;
-    *audio.channels.lock().unwrap() = config.channels();
+    let sample_rate = config.sample_rate().0;
+    let channels = config.channels();
+    *audio.sample_rate.lock().unwrap() = sample_rate;
+    *audio.channels.lock().unwrap() = channels;
 
     let buffer = audio.buffer.clone();
     buffer.lock().unwrap().clear();
 
-    let stream = build_stream(&device, &config, buffer, app.clone())?;
+    let stream = build_stream(&device, &config, buffer.clone(), app.clone())?;
     stream.play().map_err(|e| format!("RECORDING_FAILED: {e}"))?;
 
     *audio.stream.lock().unwrap() = Some(stream);
+
+    let auto_stop_enabled = crate::storage::load(app)
+        .ok()
+        .and_then(|s| s["transcription"]["autoStop"].as_bool())
+        .unwrap_or(false);
+    if auto_stop_enabled {
+        let watcher =
+            crate::vad::start_auto_stop_watcher(app.clone(), buffer, sample_rate, channels);
+        *audio.auto_stop_watcher.lock().unwrap() = Some(watcher);
+    }
+
     Ok(())
 }
 
-pub fn stop(audio: &AudioRecordingState) -> Result<Vec<u8>, String> {
+pub fn stop(audio: &AudioRecordingState, app: &AppHandle) -> Result<Vec<u8>, String> {
     *audio.stream.lock().unwrap() = None;
+    // Drop the watcher first so the worker thread sees the stop_flag on
+    // its next poll and won't fire a redundant stop_recording_external.
+    *audio.auto_stop_watcher.lock().unwrap() = None;
 
     let samples = audio.buffer.lock().unwrap().clone();
     let sample_rate = *audio.sample_rate.lock().unwrap();
     let channels = *audio.channels.lock().unwrap();
 
-    encode_wav(&samples, sample_rate, channels)
+    let trim_enabled = crate::storage::load(app)
+        .ok()
+        .and_then(|s| s["transcription"]["trimSilence"].as_bool())
+        .unwrap_or(true);
+    let trimmed = if trim_enabled {
+        crate::vad::trim_silence(&samples, sample_rate, channels)
+    } else {
+        samples
+    };
+
+    encode_wav(&trimmed, sample_rate, channels)
 }
 
 fn build_stream(

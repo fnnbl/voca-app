@@ -42,6 +42,8 @@ export interface Settings {
     language: TranscriptionLanguage
     removeFillerWords: boolean
     muteOtherAudio: boolean
+    trimSilence: boolean
+    autoStop: boolean
   }
   aiEnhancement: {
     enabled: boolean
