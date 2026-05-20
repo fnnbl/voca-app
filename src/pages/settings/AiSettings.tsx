@@ -212,6 +212,7 @@ export function AiSettings({ settings, onChange }: Props) {
 
   function closeModal() {
     setModalPrompt(null)
+    setModalMode('view')
     setDraftName('')
     setDraftText('')
   }
