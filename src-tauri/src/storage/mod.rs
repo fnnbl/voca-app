@@ -516,7 +516,8 @@ pub(crate) fn defaults() -> serde_json::Value {
         "privacy": {
             "historyTracking": true,
             "targetAppTracking": false,
-            "autoCheckUpdates": false
+            "autoCheckUpdates": false,
+            "checkModelsOnStartup": true
         }
     })
 }
@@ -661,6 +662,22 @@ mod tests {
         });
         let merged = merge_defaults(loaded, defaults());
         assert_eq!(merged["privacy"]["autoCheckUpdates"], false);
+    }
+
+    #[test]
+    fn defaults_check_models_on_startup_is_on() {
+        // Only contacts providers the user already sends audio to, with the
+        // keys already stored — no new third party, so on by default.
+        assert_eq!(defaults()["privacy"]["checkModelsOnStartup"], true);
+    }
+
+    #[test]
+    fn merge_fills_missing_check_models_on_startup_with_true() {
+        let loaded = serde_json::json!({
+            "privacy": { "historyTracking": true, "targetAppTracking": false, "autoCheckUpdates": false }
+        });
+        let merged = merge_defaults(loaded, defaults());
+        assert_eq!(merged["privacy"]["checkModelsOnStartup"], true);
     }
 
     // ── merge_defaults ────────────────────────────────────────────────────────

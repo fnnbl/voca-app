@@ -66,7 +66,15 @@ export interface Settings {
     historyTracking: boolean
     targetAppTracking: boolean
     autoCheckUpdates: boolean
+    checkModelsOnStartup: boolean
   }
+}
+
+/** A model as reported live by a provider's model listing. */
+export interface ModelInfo {
+  id: string
+  /** Announced shutdown day (YYYY-MM-DD), if the provider reports one. */
+  shutdownDate: string | null
 }
 
 export interface UpdateInfo {

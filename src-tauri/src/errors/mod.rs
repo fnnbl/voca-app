@@ -46,6 +46,8 @@ pub(crate) fn notification_body(code: &str) -> &'static str {
         "LOCAL_MODEL_ERROR" => "Local transcription failed.",
         "AI_ENHANCEMENT_FAILED" => "AI enhancement failed – original text was used.",
         "AI_KEY_INVALID" => "AI enhancement API key is invalid.",
+        "MODEL_UNAVAILABLE" => "Transcription model is no longer available. Choose another one in Settings.",
+        "QUOTA_EXCEEDED" => "Transcription provider quota, credit or rate limit reached. Check your plan with the provider.",
         _ => "An error occurred.",
     }
 }

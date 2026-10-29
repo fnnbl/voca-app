@@ -229,7 +229,9 @@
       "targetAppTracking": "Record target app",
       "targetAppTrackingDesc": "Remembers which app you paste into — used only for the \"Most common target\" stat. Stays local.",
       "autoCheckUpdates": "Check for updates automatically",
-      "autoCheckUpdatesDesc": "VOCA quietly checks GitHub once a day. No personal data is sent."
+      "autoCheckUpdatesDesc": "VOCA quietly checks GitHub once a day. No personal data is sent.",
+      "checkModelsOnStartup": "Check models on startup",
+      "checkModelsOnStartupDesc": "Checks on startup whether your selected models are still offered and warns about announced shutdowns. Only contacts providers you already use."
     },
     "transcription": {
       "method": "Method",
@@ -328,6 +330,16 @@
         "accept": "Add",
         "reject": "Hide"
       }
+    },
+    "models": {
+      "refresh": "Reload model list",
+      "custom": "Custom model…",
+      "customPlaceholder": "Enter model ID",
+      "backToList": "List",
+      "unavailable": "unavailable",
+      "unavailableHint": "The provider no longer offers this model. Please choose another one.",
+      "loadFailed": "Couldn't load the model list – showing the default list.",
+      "retiring": "The provider will shut this model down on {{date}}. Please switch in time."
     }
   },
   "errors": {
@@ -340,7 +352,9 @@
     "microphoneUnavailableWindows": "Windows is currently blocking microphone access. Open Settings, then Privacy & Security, and allow VOCA under \"Microphone\".",
     "recordingFailed": "Recording failed.",
     "shortcutConflict": "This shortcut is already in use. Try another - VOCA plays nicely with almost all of them.",
-    "aiEnhancementFailed": "AI enhancement failed - the original text was used."
+    "aiEnhancementFailed": "AI enhancement failed - the original text was used.",
+    "modelUnavailable": "The transcription model is no longer offered. Please choose another one in Settings.",
+    "quotaExceeded": "Provider quota, credit or rate limit reached. Check your plan with the provider."
   },
   "common": {
     "save": "Save",

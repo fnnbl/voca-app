@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-shell'
 import { SettingRow } from '../../components/settings/SettingRow'
+import { ModelSelect } from '../../components/settings/ModelSelect'
+import { useProviderModels } from '../../hooks/useProviderModels'
 import type { Settings, AIPrompt } from '../../types'
 
 interface Props {
@@ -30,8 +32,8 @@ const PROVIDERS: ProviderMeta[] = [
     id: 'openai',
     label: 'OpenAI',
     badge: 'paid',
-    description: 'GPT-4o and other OpenAI models',
-    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+    description: 'GPT models from OpenAI',
+    models: ['gpt-6-luna', 'gpt-6-sol'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: 'sk-...',
@@ -42,7 +44,7 @@ const PROVIDERS: ProviderMeta[] = [
     label: 'Anthropic',
     badge: 'paid',
     description: 'Claude family of models',
-    models: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
+    models: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: 'sk-ant-...',
@@ -53,7 +55,7 @@ const PROVIDERS: ProviderMeta[] = [
     label: 'Groq',
     badge: 'free',
     description: 'Very fast inference speeds',
-    models: ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+    models: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: 'gsk_...',
@@ -64,7 +66,7 @@ const PROVIDERS: ProviderMeta[] = [
     label: 'Cerebras',
     badge: 'free',
     description: 'High-speed inference with generous free limits',
-    models: ['llama3.1-8b', 'llama3.1-70b'],
+    models: ['gpt-oss-120b', 'qwen-3.8-27b'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: 'csk-...',
@@ -75,7 +77,7 @@ const PROVIDERS: ProviderMeta[] = [
     label: 'Gemini',
     badge: 'free',
     description: "Google's Gemini models with a generous free tier",
-    models: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+    models: ['gemini-3.5-flash-lite', 'gemini-3.8-flash'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: 'AIza...',
@@ -86,7 +88,7 @@ const PROVIDERS: ProviderMeta[] = [
     label: 'Mistral',
     badge: 'paid',
     description: 'Mistral AI models',
-    models: ['mistral-large-latest', 'mistral-small-latest', 'open-mistral-7b'],
+    models: ['mistral-small-latest', 'mistral-large-latest'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: '...',
@@ -97,7 +99,7 @@ const PROVIDERS: ProviderMeta[] = [
     label: 'OpenRouter',
     badge: 'paid',
     description: 'Access many providers through a single API key',
-    models: ['openai/gpt-4o', 'anthropic/claude-sonnet-4-6', 'meta-llama/llama-3.3-70b-instruct'],
+    models: ['anthropic/claude-haiku-5-5', 'openai/gpt-oss-120b'],
     needsKey: true,
     needsEndpoint: false,
     keyPlaceholder: 'sk-or-...',
@@ -127,7 +129,7 @@ const PROVIDERS: ProviderMeta[] = [
 
 
 const BADGE_LABELS: Record<string, string> = {
-  free: 'Free',
+  free: 'Free tier',
   paid: 'Paid',
   local: 'Local',
 }
@@ -145,6 +147,12 @@ export function AiSettings({ settings, onChange }: Props) {
   const [keySaving, setKeySaving] = useState(false)
 
   const meta = PROVIDERS.find((p) => p.id === ai.provider) ?? PROVIDERS[0]
+  const liveModels = useProviderModels(
+    'ai',
+    ai.provider,
+    ai.customEndpoint,
+    meta.needsKey ? hasKey : ai.customEndpoint !== '',
+  )
 
   useEffect(() => {
     invoke<AIPrompt[]>('get_prompts').then(setPrompts).catch(() => {})
@@ -320,17 +328,19 @@ export function AiSettings({ settings, onChange }: Props) {
           )}
 
           {/* Model */}
-          {meta.models.length > 0 && (
-            <SettingRow label={t('settings.ai.model')} description="">
-              <select
-                value={ai.model}
-                onChange={(e) => updateAi({ model: e.target.value })}
-                className="w-52 text-xs bg-surface-raised border border-border rounded px-2 py-1.5 text-text focus:outline-none focus:border-border-hover"
-              >
-                {meta.models.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </SettingRow>
-          )}
+          <SettingRow label={t('settings.ai.model')} description="">
+            <ModelSelect
+              key={ai.provider}
+              value={ai.model}
+              onChange={(model) => updateAi({ model })}
+              liveModels={liveModels.models}
+              fallbackModels={meta.models}
+              loading={liveModels.loading}
+              failed={liveModels.failed}
+              onRefresh={liveModels.reload}
+              className="w-52 text-xs bg-surface-raised border border-border rounded px-2 py-1.5 text-text placeholder:text-text-subtle focus:outline-none focus:border-border-hover"
+            />
+          </SettingRow>
 
           {/* API key (only for providers that need one) */}
           {meta.needsKey && (
