@@ -258,28 +258,26 @@ async fn call_cloud(
     custom_endpoint: &str,
     initial_prompt: Option<&str>,
 ) -> Result<String, String> {
+    let m = if model.is_empty() { default_cloud_model(provider) } else { model };
     match provider {
-        "deepgram" => {
-            let m = if model.is_empty() { "nova-3" } else { model };
-            call_deepgram(wav_bytes, api_key, language, m, initial_prompt).await
-        }
-        "elevenlabs" => {
-            let m = if model.is_empty() { "scribe_v2" } else { model };
-            call_elevenlabs(wav_bytes, api_key, language, m).await
-        }
-        "gemini" => {
-            let m = if model.is_empty() { "gemini-3.5-flash-lite" } else { model };
-            call_gemini(wav_bytes, api_key, language, m, initial_prompt).await
-        }
+        "deepgram" => call_deepgram(wav_bytes, api_key, language, m, initial_prompt).await,
+        "elevenlabs" => call_elevenlabs(wav_bytes, api_key, language, m).await,
+        "gemini" => call_gemini(wav_bytes, api_key, language, m, initial_prompt).await,
         _ => {
             let base = openai_compat_base_url(provider, custom_endpoint);
-            let m = if model.is_empty() {
-                if provider == "groq" { "whisper-large-v3" } else { "gpt-transcribe" }
-            } else {
-                model
-            };
             call_openai_compat(wav_bytes, api_key, language, m, &base, initial_prompt).await
         }
+    }
+}
+
+/// Model used when the user hasn't picked one for the cloud provider.
+pub(crate) fn default_cloud_model(provider: &str) -> &'static str {
+    match provider {
+        "deepgram" => "nova-3",
+        "elevenlabs" => "scribe_v2",
+        "gemini" => "gemini-3.5-flash-lite",
+        "groq" => "whisper-large-v3",
+        _ => "gpt-transcribe",
     }
 }
 
@@ -600,6 +598,8 @@ async fn maybe_enhance(
         Err(e) => {
             let body = if is_model_unavailable(&e) {
                 "AI model is no longer available – choose another one in Settings. Original text was used."
+            } else if is_quota_exceeded(&e) {
+                "AI provider quota, credit or rate limit reached – original text was used."
             } else {
                 "AI enhancement failed – original text was used."
             };
@@ -619,6 +619,15 @@ async fn maybe_enhance(
 
 pub(crate) fn is_auto_language(language: &str) -> bool {
     language.is_empty() || language.eq_ignore_ascii_case("auto")
+}
+
+/// Provider errors that mean the account ran out of free quota, credit or
+/// rate limit — typically after a free tier ends or a balance is used up.
+fn is_quota_exceeded(error: &str) -> bool {
+    let e = error.to_lowercase();
+    e.contains("insufficient_quota") || e.contains("402 payment required")
+        || e.contains("429 too many requests") || e.contains("credit balance")
+        || e.contains("exceeded your current quota") || e.contains("resource_exhausted")
 }
 
 /// Provider errors that mean the configured model was retired or the key
@@ -841,6 +850,10 @@ fn classify_error(e: &str) -> (&'static str, String) {
         ("API_KEY_INVALID", e.to_owned())
     } else if e.starts_with("NO_INTERNET") {
         ("NO_INTERNET", e.to_owned())
+    } else if is_model_unavailable(e) {
+        ("MODEL_UNAVAILABLE", e.to_owned())
+    } else if is_quota_exceeded(e) {
+        ("QUOTA_EXCEEDED", e.to_owned())
     } else if e.is_empty() {
         // already handled upstream
         ("TRANSCRIPTION_FAILED", e.to_owned())
@@ -982,6 +995,31 @@ mod tests {
         assert!(is_model_unavailable(r#"HTTP 404 – {"type":"error","error":{"type":"not_found_error","message":"model: claude-x"}}"#));
         assert!(!is_model_unavailable("AI_ENHANCEMENT_FAILED: HTTP 500 Internal Server Error"));
         assert!(!is_model_unavailable("AI_KEY_INVALID: 401 Unauthorized"));
+    }
+
+    #[test]
+    fn quota_exceeded_matches_billing_and_rate_limit_errors() {
+        assert!(is_quota_exceeded(r#"REQUEST_FAILED: HTTP 429 Too Many Requests – {"error":{"code":"insufficient_quota"}}"#));
+        assert!(is_quota_exceeded("REQUEST_FAILED: HTTP 402 Payment Required – {}"));
+        assert!(is_quota_exceeded("Your credit balance is too low to access the API"));
+        assert!(is_quota_exceeded(r#"HTTP 429 – {"error":{"status":"RESOURCE_EXHAUSTED"}}"#));
+        assert!(!is_quota_exceeded("REQUEST_FAILED: HTTP 404 Not Found"));
+    }
+
+    #[test]
+    fn classify_error_maps_model_and_quota_failures() {
+        assert_eq!(classify_error("REQUEST_FAILED: HTTP 404 – model_not_found").0, "MODEL_UNAVAILABLE");
+        assert_eq!(classify_error("REQUEST_FAILED: HTTP 429 Too Many Requests – x").0, "QUOTA_EXCEEDED");
+        assert_eq!(classify_error("API_KEY_INVALID: 401 Unauthorized").0, "API_KEY_INVALID");
+        assert_eq!(classify_error("REQUEST_FAILED: HTTP 500").0, "TRANSCRIPTION_FAILED");
+    }
+
+    #[test]
+    fn default_cloud_model_per_provider() {
+        assert_eq!(default_cloud_model("openai"), "gpt-transcribe");
+        assert_eq!(default_cloud_model("custom"), "gpt-transcribe");
+        assert_eq!(default_cloud_model("groq"), "whisper-large-v3");
+        assert_eq!(default_cloud_model("deepgram"), "nova-3");
     }
 
     #[test]

@@ -229,7 +229,9 @@
       "targetAppTracking": "Enregistrer l'app cible",
       "targetAppTrackingDesc": "Mémorise dans quelle app tu colles le texte — uniquement pour la stat \"App la plus fréquente\". Reste en local.",
       "autoCheckUpdates": "Vérifier les mises à jour automatiquement",
-      "autoCheckUpdatesDesc": "VOCA interroge GitHub une fois par jour. Aucune donnée personnelle n'est envoyée."
+      "autoCheckUpdatesDesc": "VOCA interroge GitHub une fois par jour. Aucune donnée personnelle n'est envoyée.",
+      "checkModelsOnStartup": "Vérifier les modèles au démarrage",
+      "checkModelsOnStartupDesc": "Vérifie au démarrage si vos modèles sélectionnés sont toujours proposés et prévient des arrêts annoncés. Contacte uniquement les fournisseurs que vous utilisez déjà."
     },
     "transcription": {
       "method": "Méthode",
@@ -336,7 +338,8 @@
       "backToList": "Liste",
       "unavailable": "indisponible",
       "unavailableHint": "Le fournisseur ne propose plus ce modèle. Veuillez en choisir un autre.",
-      "loadFailed": "Impossible de charger la liste des modèles – la liste par défaut est affichée."
+      "loadFailed": "Impossible de charger la liste des modèles – la liste par défaut est affichée.",
+      "retiring": "Le fournisseur arrêtera ce modèle le {{date}}. Pensez à en changer à temps."
     }
   },
   "errors": {
@@ -349,7 +352,9 @@
     "microphoneUnavailableWindows": "Windows bloque actuellement l'accès au microphone. Ouvre les Paramètres, puis Confidentialité & Sécurité, et autorise VOCA sous \"Microphone\".",
     "recordingFailed": "Échec de l'enregistrement.",
     "shortcutConflict": "Ce raccourci est déjà utilisé. Essaie-en un autre - VOCA s'entend bien avec presque tous.",
-    "aiEnhancementFailed": "L'amélioration IA a échoué - le texte original a été utilisé."
+    "aiEnhancementFailed": "L'amélioration IA a échoué - le texte original a été utilisé.",
+    "modelUnavailable": "Le modèle de transcription n'est plus proposé. Veuillez en choisir un autre dans les paramètres.",
+    "quotaExceeded": "Quota, crédit ou limite de requêtes du fournisseur atteint. Vérifiez votre forfait auprès du fournisseur."
   },
   "common": {
     "save": "Enregistrer",

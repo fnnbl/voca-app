@@ -407,7 +407,7 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
                   className={`prov-card${selectedProvider === p.id ? ' is-active' : ''}`}
                 >
                   <div className="prov-name">{p.label}</div>
-                  <div className={`prov-meta${p.badge === 'free' ? ' free' : ''}`}>{p.badge}</div>
+                  <div className={`prov-meta${p.badge === 'free' ? ' free' : ''}`}>{p.badge === 'free' ? 'free tier' : p.badge}</div>
                   <div className="prov-desc">{p.description}</div>
                 </button>
               ))}

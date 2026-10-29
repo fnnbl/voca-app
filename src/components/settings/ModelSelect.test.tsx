@@ -2,10 +2,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { ModelSelect } from './ModelSelect'
+import type { ModelInfo } from '../../types'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }))
+
+const live = (...ids: string[]): ModelInfo[] => ids.map((id) => ({ id, shutdownDate: null }))
 
 const base = {
   onChange: () => {},
@@ -20,13 +23,13 @@ describe('ModelSelect', () => {
   })
 
   it('prefers the live list over the static one', () => {
-    render(<ModelSelect {...base} value="x" liveModels={['x', 'y']} fallbackModels={['a']} />)
+    render(<ModelSelect {...base} value="x" liveModels={live('x', 'y')} fallbackModels={['a']} />)
     expect(screen.getByRole('option', { name: 'y' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'a' })).not.toBeInTheDocument()
   })
 
   it('flags a saved model the live list no longer contains', () => {
-    render(<ModelSelect {...base} value="gpt-4-turbo" liveModels={['gpt-6-luna']} fallbackModels={[]} />)
+    render(<ModelSelect {...base} value="gpt-4-turbo" liveModels={live('gpt-6-luna')} fallbackModels={[]} />)
     expect(
       screen.getByRole('option', { name: 'gpt-4-turbo (settings.models.unavailable)' }),
     ).toBeInTheDocument()
@@ -46,6 +49,17 @@ describe('ModelSelect', () => {
     expect(onChange).not.toHaveBeenCalled()
     await userEvent.type(screen.getByPlaceholderText('settings.models.customPlaceholder'), 'z')
     expect(onChange).toHaveBeenLastCalledWith('az')
+  })
+
+  it('warns when the selected model has an announced shutdown date', () => {
+    const models: ModelInfo[] = [{ id: 'whisper-1', shutdownDate: '2027-02-26' }]
+    render(<ModelSelect {...base} value="whisper-1" liveModels={models} fallbackModels={[]} />)
+    expect(screen.getByText('settings.models.retiring')).toBeInTheDocument()
+  })
+
+  it('shows no shutdown warning for models without a date', () => {
+    render(<ModelSelect {...base} value="x" liveModels={live('x')} fallbackModels={[]} />)
+    expect(screen.queryByText('settings.models.retiring')).not.toBeInTheDocument()
   })
 
   it('starts in free-text mode when no models are listed', () => {

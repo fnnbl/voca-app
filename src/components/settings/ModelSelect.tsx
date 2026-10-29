@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ModelInfo } from '../../types'
 
 const CUSTOM_OPTION = '__custom__'
 
@@ -7,7 +8,7 @@ interface ModelSelectProps {
   value: string
   onChange: (model: string) => void
   /** Models reported live by the provider, or null if not loaded. */
-  liveModels: string[] | null
+  liveModels: ModelInfo[] | null
   /** Static list shown until (or instead of) a live list. */
   fallbackModels: string[]
   loading: boolean
@@ -26,8 +27,9 @@ export function ModelSelect({
   onRefresh,
   className = '',
 }: ModelSelectProps) {
-  const { t } = useTranslation()
-  const options = liveModels ?? fallbackModels
+  const { t, i18n } = useTranslation()
+  const options = liveModels?.map((m) => m.id) ?? fallbackModels
+  const shutdownDate = liveModels?.find((m) => m.id === value)?.shutdownDate ?? null
   const isListed = options.includes(value)
   // Free-text entry for models a listing doesn't cover (custom endpoints,
   // brand-new releases). Starts open when nothing is listed at all.
@@ -96,9 +98,19 @@ export function ModelSelect({
       {unavailable && (
         <p className="text-xs text-error">{t('settings.models.unavailableHint')}</p>
       )}
+      {shutdownDate && (
+        <p className="text-xs text-error">
+          {t('settings.models.retiring', { date: formatDay(shutdownDate, i18n.language) })}
+        </p>
+      )}
       {failed && !unavailable && (
         <p className="text-xs text-text-muted">{t('settings.models.loadFailed')}</p>
       )}
     </div>
   )
+}
+
+function formatDay(day: string, locale: string): string {
+  const date = new Date(`${day}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? day : date.toLocaleDateString(locale)
 }

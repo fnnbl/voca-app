@@ -229,7 +229,9 @@
       "targetAppTracking": "Registra l'app di destinazione",
       "targetAppTrackingDesc": "Memorizza in quale app incolli — solo per la statistica \"App più frequente\". Resta in locale.",
       "autoCheckUpdates": "Controlla aggiornamenti automaticamente",
-      "autoCheckUpdatesDesc": "VOCA chiede a GitHub una volta al giorno. Nessun dato personale viene inviato."
+      "autoCheckUpdatesDesc": "VOCA chiede a GitHub una volta al giorno. Nessun dato personale viene inviato.",
+      "checkModelsOnStartup": "Controlla i modelli all'avvio",
+      "checkModelsOnStartupDesc": "All'avvio controlla se i modelli selezionati sono ancora disponibili e avvisa delle dismissioni annunciate. Contatta solo i provider che già usi."
     },
     "transcription": {
       "method": "Metodo",
@@ -336,7 +338,8 @@
       "backToList": "Elenco",
       "unavailable": "non disponibile",
       "unavailableHint": "Il provider non offre più questo modello. Scegline un altro.",
-      "loadFailed": "Impossibile caricare l'elenco dei modelli: viene mostrato l'elenco predefinito."
+      "loadFailed": "Impossibile caricare l'elenco dei modelli: viene mostrato l'elenco predefinito.",
+      "retiring": "Il provider dismetterà questo modello il {{date}}. Cambialo per tempo."
     }
   },
   "errors": {
@@ -349,7 +352,9 @@
     "microphoneUnavailableWindows": "Windows sta bloccando l'accesso al microfono. Apri Impostazioni, poi Privacy & Sicurezza, e consenti a VOCA l'accesso sotto \"Microfono\".",
     "recordingFailed": "Registrazione fallita.",
     "shortcutConflict": "Questa combinazione è già in uso. Provane un'altra - VOCA va d'accordo con quasi tutte.",
-    "aiEnhancementFailed": "Il miglioramento IA è fallito - è stato usato il testo originale."
+    "aiEnhancementFailed": "Il miglioramento IA è fallito - è stato usato il testo originale.",
+    "modelUnavailable": "Il modello di trascrizione non è più disponibile. Scegline un altro nelle Impostazioni.",
+    "quotaExceeded": "Quota, credito o limite di richieste del provider raggiunto. Verifica il tuo piano con il provider."
   },
   "common": {
     "save": "Salva",

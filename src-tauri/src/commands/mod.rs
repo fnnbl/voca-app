@@ -433,7 +433,10 @@ pub fn delete_ai_provider_key(provider: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn list_ai_models(provider: String, custom_endpoint: Option<String>) -> Result<Vec<String>, String> {
+pub async fn list_ai_models(
+    provider: String,
+    custom_endpoint: Option<String>,
+) -> Result<Vec<crate::models::ModelInfo>, String> {
     crate::models::list_ai_models(&provider, custom_endpoint.as_deref()).await
 }
 
@@ -441,7 +444,7 @@ pub async fn list_ai_models(provider: String, custom_endpoint: Option<String>) -
 pub async fn list_transcription_models(
     provider: String,
     custom_endpoint: Option<String>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<crate::models::ModelInfo>, String> {
     crate::models::list_transcription_models(&provider, custom_endpoint.as_deref()).await
 }
 

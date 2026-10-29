@@ -233,6 +233,23 @@ pub fn run() {
                 });
             }
 
+            // Warn early when a configured cloud model was retired or is about
+            // to be. On by default: it only queries providers the user already
+            // sends audio to (Settings → Privacy → "Check models on startup").
+            let model_check_enabled = {
+                let settings = crate::storage::load(app.handle()).unwrap_or_default();
+                settings["privacy"]["checkModelsOnStartup"]
+                    .as_bool()
+                    .unwrap_or(true)
+            };
+            if onboarding_done && model_check_enabled {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    crate::models::run_startup_check(app_handle).await;
+                });
+            }
+
             if let Some(main) = app.get_webview_window("main") {
                 // Use small icon for title bar — avoids Windows scaling artefacts
                 if let Ok(icon) = tauri::image::Image::from_bytes(

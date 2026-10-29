@@ -129,7 +129,7 @@ const PROVIDERS: ProviderMeta[] = [
 
 
 const BADGE_LABELS: Record<string, string> = {
-  free: 'Free',
+  free: 'Free tier',
   paid: 'Paid',
   local: 'Local',
 }

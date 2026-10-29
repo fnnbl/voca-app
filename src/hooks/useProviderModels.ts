@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import type { ModelInfo } from '../types'
 
 export type ModelListKind = 'ai' | 'transcription'
 
@@ -14,7 +15,7 @@ export function useProviderModels(
   customEndpoint: string,
   enabled: boolean,
 ) {
-  const [models, setModels] = useState<string[] | null>(null)
+  const [models, setModels] = useState<ModelInfo[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
@@ -29,7 +30,7 @@ export function useProviderModels(
     const command = kind === 'ai' ? 'list_ai_models' : 'list_transcription_models'
     // Debounced so typing a custom endpoint doesn't fire a request per key.
     const timer = setTimeout(() => {
-      invoke<string[]>(command, { provider, customEndpoint: customEndpoint || null })
+      invoke<ModelInfo[]>(command, { provider, customEndpoint: customEndpoint || null })
         .then((list) => {
           if (cancelled) return
           if (list.length > 0) setModels(list)
