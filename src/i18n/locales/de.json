@@ -328,6 +328,15 @@
         "accept": "Übernehmen",
         "reject": "Ausblenden"
       }
+    },
+    "models": {
+      "refresh": "Modellliste neu laden",
+      "custom": "Eigenes Modell…",
+      "customPlaceholder": "Modell-ID eingeben",
+      "backToList": "Liste",
+      "unavailable": "nicht verfügbar",
+      "unavailableHint": "Dieses Modell bietet der Anbieter nicht mehr an. Bitte ein anderes wählen.",
+      "loadFailed": "Modellliste konnte nicht geladen werden – Standardliste wird angezeigt."
     }
   },
   "errors": {

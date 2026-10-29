@@ -8,6 +8,7 @@ pub mod fillers;
 pub mod hotkey;
 pub mod keychain;
 pub mod local_transcription;
+pub mod models;
 pub mod shortcut;
 pub mod stats;
 pub mod storage;
@@ -285,6 +286,8 @@ pub fn run() {
             commands::delete_transcription_key,
             commands::save_ai_provider_key,
             commands::get_ai_provider_key,
+            commands::list_ai_models,
+            commands::list_transcription_models,
             commands::delete_ai_provider_key,
             commands::get_dictionary,
             commands::save_dictionary,

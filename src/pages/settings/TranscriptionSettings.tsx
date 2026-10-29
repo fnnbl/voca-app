@@ -5,6 +5,8 @@ import { listen } from '@tauri-apps/api/event'
 import { open as openExternal } from '@tauri-apps/plugin-shell'
 import { open as openFileDialog, ask, message } from '@tauri-apps/plugin-dialog'
 import { SettingRow } from '../../components/settings/SettingRow'
+import { ModelSelect } from '../../components/settings/ModelSelect'
+import { useProviderModels } from '../../hooks/useProviderModels'
 import { TRANSCRIPTION_LANGUAGES } from '../../types'
 import type { Settings, TranscriptionLanguage } from '../../types'
 
@@ -33,8 +35,8 @@ const CLOUD_PROVIDERS: CloudProviderMeta[] = [
     id: 'openai',
     label: 'OpenAI',
     badge: 'paid',
-    description: 'Whisper – high accuracy, many languages',
-    models: ['whisper-1'],
+    description: 'GPT Transcribe – high accuracy, many languages',
+    models: ['gpt-transcribe', 'gpt-4o-mini-transcribe', 'whisper-1'],
     needsKey: true,
     keyPlaceholder: 'sk-...',
     keyLink: 'https://platform.openai.com/api-keys',
@@ -45,7 +47,7 @@ const CLOUD_PROVIDERS: CloudProviderMeta[] = [
     label: 'Groq',
     badge: 'free',
     description: 'Whisper large-v3-turbo – very fast inference',
-    models: ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en'],
+    models: ['whisper-large-v3-turbo', 'whisper-large-v3'],
     needsKey: true,
     keyPlaceholder: 'gsk_...',
     keyLink: 'https://console.groq.com/keys',
@@ -56,7 +58,7 @@ const CLOUD_PROVIDERS: CloudProviderMeta[] = [
     label: 'Deepgram',
     badge: 'free',
     description: 'Nova-3 – fast with smart formatting',
-    models: ['nova-3', 'nova-2', 'enhanced'],
+    models: ['nova-3', 'nova-2'],
     needsKey: true,
     keyPlaceholder: 'deepgram key...',
     keyLink: 'https://console.deepgram.com',
@@ -67,7 +69,7 @@ const CLOUD_PROVIDERS: CloudProviderMeta[] = [
     label: 'ElevenLabs',
     badge: 'paid',
     description: 'Scribe – high quality with timestamps',
-    models: ['scribe_v1'],
+    models: ['scribe_v2', 'scribe_v1'],
     needsKey: true,
     keyPlaceholder: 'el_...',
     keyLink: 'https://elevenlabs.io/app/settings/api-keys',
@@ -78,7 +80,7 @@ const CLOUD_PROVIDERS: CloudProviderMeta[] = [
     label: 'Gemini',
     badge: 'free',
     description: "Google Gemini – multimodal transcription",
-    models: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+    models: ['gemini-3.5-flash-lite', 'gemini-3.8-flash'],
     needsKey: true,
     keyPlaceholder: 'AIza...',
     keyLink: 'https://aistudio.google.com/app/apikey',
@@ -96,6 +98,9 @@ const CLOUD_PROVIDERS: CloudProviderMeta[] = [
   },
 ]
 
+
+// Providers whose model catalogue can be fetched live (see models::list_transcription_models).
+const LIVE_MODEL_LIST_PROVIDERS: CloudProvider[] = ['openai', 'groq', 'gemini', 'custom']
 
 interface ModelStatus {
   downloaded: boolean
@@ -126,6 +131,7 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
   const selectedSize = settings.transcription.localModelSize
   const selectedProvider = settings.transcription.cloudProvider ?? 'openai'
   const providerMeta = CLOUD_PROVIDERS.find((p) => p.id === selectedProvider)!
+  const hasLiveModelList = LIVE_MODEL_LIST_PROVIDERS.includes(selectedProvider)
 
   const [modelStatuses, setModelStatuses] = useState<Record<ModelSize, ModelStatus | null>>({
     tiny: null, base: null, small: null, medium: null,
@@ -134,6 +140,13 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null)
   const [providerKey, setProviderKey] = useState('')
   const [keyDirty, setKeyDirty] = useState(false)
+  const [savedKey, setSavedKey] = useState(false)
+  const liveModels = useProviderModels(
+    'transcription',
+    selectedProvider,
+    settings.transcription.cloudCustomEndpoint,
+    !isLocal && savedKey && hasLiveModelList,
+  )
   const [customModels, setCustomModels] = useState<CustomModelInfo[]>([])
   const [importing, setImporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -162,8 +175,12 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
   useEffect(() => {
     setProviderKey('')
     setKeyDirty(false)
+    setSavedKey(false)
     invoke<string | null>('get_transcription_key', { provider: selectedProvider })
-      .then((k) => setProviderKey(k ?? ''))
+      .then((k) => {
+        setProviderKey(k ?? '')
+        setSavedKey(!!k)
+      })
       .catch(() => {})
   }, [selectedProvider])
 
@@ -205,6 +222,8 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
     if (!keyDirty) return
     await invoke('save_transcription_key', { provider: selectedProvider, value: providerKey })
     setKeyDirty(false)
+    setSavedKey(providerKey !== '')
+    liveModels.reload()
   }
 
   function handleModeChange(mode: 'cloud' | 'local') {
@@ -395,22 +414,24 @@ export function TranscriptionSettings({ settings, onChange }: Props) {
             </div>
           </div>
 
-          {providerMeta.models.length > 0 && (
-            <SettingRow label={t('settings.transcription.cloudModel')} description="">
-              <select
-                value={settings.transcription.cloudModel || providerMeta.models[0]}
-                onChange={(e) =>
-                  onChange({
-                    ...settings,
-                    transcription: { ...settings.transcription, cloudModel: e.target.value },
-                  })
-                }
-                className="w-48 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg text-text focus:outline-none focus:border-accent"
-              >
-                {providerMeta.models.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </SettingRow>
-          )}
+          <SettingRow label={t('settings.transcription.cloudModel')} description="">
+            <ModelSelect
+              key={selectedProvider}
+              value={settings.transcription.cloudModel || providerMeta.models[0] || ''}
+              onChange={(cloudModel) =>
+                onChange({
+                  ...settings,
+                  transcription: { ...settings.transcription, cloudModel },
+                })
+              }
+              liveModels={liveModels.models}
+              fallbackModels={providerMeta.models}
+              loading={liveModels.loading}
+              failed={liveModels.failed}
+              onRefresh={hasLiveModelList && savedKey ? liveModels.reload : undefined}
+              className="w-48 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg text-text placeholder:text-text-muted focus:outline-none focus:border-accent"
+            />
+          </SettingRow>
 
           {providerMeta.needsEndpoint && (
             <SettingRow label={t('settings.transcription.cloudCustomEndpoint')} description="">

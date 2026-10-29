@@ -328,6 +328,15 @@
         "accept": "Add",
         "reject": "Hide"
       }
+    },
+    "models": {
+      "refresh": "Reload model list",
+      "custom": "Custom model…",
+      "customPlaceholder": "Enter model ID",
+      "backToList": "List",
+      "unavailable": "unavailable",
+      "unavailableHint": "The provider no longer offers this model. Please choose another one.",
+      "loadFailed": "Couldn't load the model list – showing the default list."
     }
   },
   "errors": {

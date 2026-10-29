@@ -328,6 +328,15 @@
         "accept": "Ajouter",
         "reject": "Masquer"
       }
+    },
+    "models": {
+      "refresh": "Recharger la liste des modèles",
+      "custom": "Modèle personnalisé…",
+      "customPlaceholder": "Saisir l'ID du modèle",
+      "backToList": "Liste",
+      "unavailable": "indisponible",
+      "unavailableHint": "Le fournisseur ne propose plus ce modèle. Veuillez en choisir un autre.",
+      "loadFailed": "Impossible de charger la liste des modèles – la liste par défaut est affichée."
     }
   },
   "errors": {
