@@ -195,7 +195,7 @@ pub async fn download_model(app: tauri::AppHandle, size: String) -> Result<(), S
         std::fs::create_dir_all(parent).map_err(|e| format!("STORAGE_ERROR: {e}"))?;
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let mut response = client
         .get(&url)
         .send()

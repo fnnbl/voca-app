@@ -54,11 +54,17 @@ pub async fn process(app: AppHandle) {
         return;
     }
 
+    let stt_started = std::time::Instant::now();
     let result = if mode == "local" {
         transcribe_local(&app, &settings, wav_bytes, &language, dict_prompt.as_deref()).await
     } else {
         transcribe_cloud(&app, &settings, wav_bytes, &language, dict_prompt.as_deref()).await
     };
+
+    log::info!(
+        "timing: transcription ({mode}) {} ms for {duration_secs:.1} s audio",
+        stt_started.elapsed().as_millis()
+    );
 
     let raw_text = match result {
         Ok(text) if text.trim().is_empty() => {
@@ -90,7 +96,9 @@ pub async fn process(app: AppHandle) {
     let filtered_text = maybe_remove_fillers(&app, &settings, raw_text);
     let expanded_text = apply_snippets(&app, filtered_text);
     let pre_enhance = expanded_text.clone();
+    let enhance_started = std::time::Instant::now();
     let final_text = maybe_enhance(&app, &settings, expanded_text).await;
+    log::info!("timing: enhancement {} ms", enhance_started.elapsed().as_millis());
 
     let was_enhanced = final_text != pre_enhance;
     let word_count = final_text.split_whitespace().count() as u32;
@@ -121,11 +129,13 @@ pub async fn process(app: AppHandle) {
     };
 
     transition_to_inserting(&app);
+    let paste_started = std::time::Instant::now();
     if let Err(e) = crate::clipboard::paste(&paste_text) {
         crate::errors::emit(&app, "PASTE_FAILED", &e);
         crate::errors::transition_to_error(&app);
         return;
     }
+    log::info!("timing: paste {} ms", paste_started.elapsed().as_millis());
     transition_to_idle(&app);
 
     if history_tracking {
@@ -303,7 +313,7 @@ async fn call_openai_compat(
         form = form.text("prompt", prompt.to_owned());
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let response = client
         .post(format!("{base_url}/audio/transcriptions"))
         .bearer_auth(api_key)
@@ -357,7 +367,7 @@ async fn call_deepgram(
     } else {
         format!("language={language}")
     };
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let response = client
         .post(format!(
             "https://api.deepgram.com/v1/listen?{language_param}&model={model}&smart_format=true{keywords}"
@@ -414,7 +424,7 @@ async fn call_elevenlabs(
         form = form.text("language_code", language.to_owned());
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let response = client
         .post("https://api.elevenlabs.io/v1/speech-to-text")
         .header("xi-api-key", api_key)
@@ -479,7 +489,7 @@ async fn call_gemini(
         }]
     });
 
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let response = client
         .post(format!(
             "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
