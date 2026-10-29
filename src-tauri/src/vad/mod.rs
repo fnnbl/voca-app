@@ -71,9 +71,13 @@ pub fn trim_silence(samples: &[f32], sample_rate: u32, channels: u16) -> Vec<f32
     samples[start_idx..end_idx].to_vec()
 }
 
-/// Down-mix interleaved multi-channel audio and resample to 16 kHz with
-/// linear interpolation. This is the format Silero expects on input.
-fn resample_to_mono_16k(samples: &[f32], sample_rate: u32, channels: u16) -> Vec<f32> {
+/// Down-mix interleaved multi-channel audio and resample to 16 kHz. This
+/// is the format Silero and Whisper expect on input.
+///
+/// Integer ratios (48 kHz, 32 kHz) are decimated by block-averaging, which
+/// doubles as a cheap low-pass against aliasing. Other rates (44.1 kHz)
+/// fall back to linear interpolation.
+pub(crate) fn resample_to_mono_16k(samples: &[f32], sample_rate: u32, channels: u16) -> Vec<f32> {
     let mono: Vec<f32> = if channels > 1 {
         let ch = channels as usize;
         samples
@@ -86,6 +90,14 @@ fn resample_to_mono_16k(samples: &[f32], sample_rate: u32, channels: u16) -> Vec
 
     if sample_rate == 16_000 {
         return mono;
+    }
+
+    if sample_rate > 16_000 && sample_rate % 16_000 == 0 {
+        let factor = (sample_rate / 16_000) as usize;
+        return mono
+            .chunks_exact(factor)
+            .map(|c| c.iter().sum::<f32>() / factor as f32)
+            .collect();
     }
 
     let ratio = 16_000.0_f32 / sample_rate as f32;
@@ -229,6 +241,20 @@ mod tests {
         for s in &out {
             assert!(s.abs() < 0.01, "stereo mix should be near zero: {s}");
         }
+    }
+
+    #[test]
+    fn resample_48k_attenuates_content_above_nyquist() {
+        // 12 kHz tone at 48 kHz aliases to 4 kHz under plain decimation.
+        // Block-averaging over 3 samples attenuates it ~3x.
+        use std::f32::consts::PI;
+        let input: Vec<f32> = (0..48_000)
+            .map(|i| (2.0 * PI * 12_000.0 * i as f32 / 48_000.0).sin() * 0.5)
+            .collect();
+        let out = resample_to_mono_16k(&input, 48_000, 1);
+        assert_eq!(out.len(), 16_000);
+        let rms = (out.iter().map(|s| s * s).sum::<f32>() / out.len() as f32).sqrt();
+        assert!(rms < 0.2, "aliased energy too high: {rms}");
     }
 
     #[test]
