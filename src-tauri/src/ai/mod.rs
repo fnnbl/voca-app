@@ -46,7 +46,7 @@ async fn enhance_openai_compat(
         ]
     });
 
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let mut req = client
         .post(format!("{base}/chat/completions"))
         .json(&body);
@@ -93,7 +93,7 @@ async fn enhance_anthropic(
         "messages": [{"role": "user", "content": wrap_transcript(text)}]
     });
 
-    let client = reqwest::Client::new();
+    let client = crate::http_client();
     let response = client
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)

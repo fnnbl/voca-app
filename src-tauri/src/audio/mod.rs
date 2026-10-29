@@ -111,7 +111,11 @@ pub fn stop(audio: &AudioRecordingState, app: &AppHandle) -> Result<Vec<u8>, Str
         samples
     };
 
-    encode_wav(&trimmed, sample_rate, channels)
+    // Every STT backend works on 16 kHz mono internally. Shipping the
+    // device's native format (typically 48 kHz stereo on Windows) only
+    // inflates the cloud upload ~6x with no accuracy gain.
+    let mono_16k = crate::vad::resample_to_mono_16k(&trimmed, sample_rate, channels);
+    encode_wav(&mono_16k, 16_000, 1)
 }
 
 fn build_stream(
