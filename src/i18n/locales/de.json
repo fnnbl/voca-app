@@ -229,7 +229,9 @@
       "targetAppTracking": "Ziel-App erfassen",
       "targetAppTrackingDesc": "Merkt sich, in welche App du einfügst – nur für die \"Häufigstes Ziel\"-Statistik. Bleibt lokal.",
       "autoCheckUpdates": "Updates automatisch prüfen",
-      "autoCheckUpdatesDesc": "VOCA fragt einmal täglich GitHub nach Updates. Es werden keine persönlichen Daten gesendet."
+      "autoCheckUpdatesDesc": "VOCA fragt einmal täglich GitHub nach Updates. Es werden keine persönlichen Daten gesendet.",
+      "checkModelsOnStartup": "Modelle beim Start prüfen",
+      "checkModelsOnStartupDesc": "Prüft beim Start, ob deine gewählten Modelle noch angeboten werden, und warnt vor angekündigten Abschaltungen. Fragt nur die Anbieter, die du ohnehin nutzt."
     },
     "transcription": {
       "method": "Methode",
@@ -328,6 +330,16 @@
         "accept": "Übernehmen",
         "reject": "Ausblenden"
       }
+    },
+    "models": {
+      "refresh": "Modellliste neu laden",
+      "custom": "Eigenes Modell…",
+      "customPlaceholder": "Modell-ID eingeben",
+      "backToList": "Liste",
+      "unavailable": "nicht verfügbar",
+      "unavailableHint": "Dieses Modell bietet der Anbieter nicht mehr an. Bitte ein anderes wählen.",
+      "loadFailed": "Modellliste konnte nicht geladen werden – Standardliste wird angezeigt.",
+      "retiring": "Wird am {{date}} vom Anbieter abgeschaltet. Bitte rechtzeitig wechseln."
     }
   },
   "errors": {
@@ -340,7 +352,9 @@
     "microphoneUnavailableWindows": "Windows blockiert gerade den Mikrofonzugriff. Öffne die Einstellungen, dann Datenschutz & Sicherheit, und erlaube VOCA den Zugriff unter \"Mikrofon\".",
     "recordingFailed": "Aufnahme fehlgeschlagen.",
     "shortcutConflict": "Diese Tastenkombination wird bereits verwendet. Probier eine andere, VOCA versteht sich mit fast allen.",
-    "aiEnhancementFailed": "KI-Nachbearbeitung fehlgeschlagen - Originaltext wurde verwendet."
+    "aiEnhancementFailed": "KI-Nachbearbeitung fehlgeschlagen - Originaltext wurde verwendet.",
+    "modelUnavailable": "Das Transkriptionsmodell wird nicht mehr angeboten. Bitte in den Einstellungen ein anderes wählen.",
+    "quotaExceeded": "Kontingent, Guthaben oder Rate-Limit beim Anbieter erreicht. Prüfe deinen Tarif beim Anbieter."
   },
   "common": {
     "save": "Speichern",

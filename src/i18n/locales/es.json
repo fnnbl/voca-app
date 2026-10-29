@@ -229,7 +229,9 @@
       "targetAppTracking": "Registrar app destino",
       "targetAppTrackingDesc": "Recuerda en qué app pegas el texto — solo para la estadística \"App más frecuente\". Se queda en local.",
       "autoCheckUpdates": "Buscar actualizaciones automáticamente",
-      "autoCheckUpdatesDesc": "VOCA consulta GitHub una vez al día. No se envían datos personales."
+      "autoCheckUpdatesDesc": "VOCA consulta GitHub una vez al día. No se envían datos personales.",
+      "checkModelsOnStartup": "Comprobar modelos al iniciar",
+      "checkModelsOnStartupDesc": "Comprueba al iniciar si tus modelos seleccionados siguen disponibles y avisa de retiradas anunciadas. Solo contacta a proveedores que ya usas."
     },
     "transcription": {
       "method": "Método",
@@ -328,6 +330,16 @@
         "accept": "Añadir",
         "reject": "Ocultar"
       }
+    },
+    "models": {
+      "refresh": "Recargar lista de modelos",
+      "custom": "Modelo personalizado…",
+      "customPlaceholder": "Introduce el ID del modelo",
+      "backToList": "Lista",
+      "unavailable": "no disponible",
+      "unavailableHint": "El proveedor ya no ofrece este modelo. Elige otro.",
+      "loadFailed": "No se pudo cargar la lista de modelos; se muestra la lista predeterminada.",
+      "retiring": "El proveedor retirará este modelo el {{date}}. Cámbialo a tiempo."
     }
   },
   "errors": {
@@ -340,7 +352,9 @@
     "microphoneUnavailableWindows": "Windows está bloqueando el acceso al micrófono. Abre Configuración, luego Privacidad & Seguridad, y permite a VOCA el acceso en \"Micrófono\".",
     "recordingFailed": "Error en la grabación.",
     "shortcutConflict": "Este atajo ya está en uso. Prueba con otro - VOCA se lleva bien con casi todos.",
-    "aiEnhancementFailed": "La mejora con IA falló - se usó el texto original."
+    "aiEnhancementFailed": "La mejora con IA falló - se usó el texto original.",
+    "modelUnavailable": "El modelo de transcripción ya no está disponible. Elige otro en Ajustes.",
+    "quotaExceeded": "Se alcanzó la cuota, el crédito o el límite de solicitudes del proveedor. Revisa tu plan con el proveedor."
   },
   "common": {
     "save": "Guardar",

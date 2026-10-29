@@ -88,7 +88,9 @@ async fn enhance_anthropic(
 ) -> Result<String, String> {
     let body = serde_json::json!({
         "model": model,
-        "max_tokens": 4096,
+        // Headroom for thinking tokens on current Claude models; the
+        // transcript output itself is far shorter.
+        "max_tokens": 16000,
         "system": system_prompt,
         "messages": [{"role": "user", "content": wrap_transcript(text)}]
     });
@@ -117,10 +119,19 @@ async fn enhance_anthropic(
         .await
         .map_err(|e| format!("AI_ENHANCEMENT_FAILED: {e}"))?;
 
-    json["content"][0]["text"]
-        .as_str()
+    first_text_block(&json)
         .map(post_process_output)
         .ok_or_else(|| "AI_ENHANCEMENT_FAILED: unexpected response shape".into())
+}
+
+/// Current Claude models think by default, so `content[0]` can be a
+/// `thinking` block — take the first `text` block instead.
+fn first_text_block(json: &serde_json::Value) -> Option<&str> {
+    json["content"]
+        .as_array()?
+        .iter()
+        .find(|block| block["type"] == "text")
+        .and_then(|block| block["text"].as_str())
 }
 
 fn wrap_transcript(text: &str) -> String {
@@ -277,6 +288,21 @@ mod tests {
     }
 
     // ── wrap_transcript ────────────────────────────────────────────────────────
+
+    #[test]
+    fn first_text_block_skips_leading_thinking_block() {
+        let json = serde_json::json!({"content": [
+            {"type": "thinking", "thinking": ""},
+            {"type": "text", "text": "Hallo Welt."}
+        ]});
+        assert_eq!(first_text_block(&json), Some("Hallo Welt."));
+    }
+
+    #[test]
+    fn first_text_block_none_without_text() {
+        assert_eq!(first_text_block(&serde_json::json!({"content": []})), None);
+        assert_eq!(first_text_block(&serde_json::json!({})), None);
+    }
 
     #[test]
     fn wrap_transcript_adds_xml_tags() {

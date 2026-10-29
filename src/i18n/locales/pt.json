@@ -229,7 +229,9 @@
       "targetAppTracking": "Registar app de destino",
       "targetAppTrackingDesc": "Lembra em que app colas o texto — só para a estatística \"App mais frequente\". Fica em local.",
       "autoCheckUpdates": "Procurar atualizações automaticamente",
-      "autoCheckUpdatesDesc": "O VOCA consulta o GitHub uma vez por dia. Não são enviados dados pessoais."
+      "autoCheckUpdatesDesc": "O VOCA consulta o GitHub uma vez por dia. Não são enviados dados pessoais.",
+      "checkModelsOnStartup": "Verificar modelos ao iniciar",
+      "checkModelsOnStartupDesc": "Verifica ao iniciar se os modelos selecionados ainda são oferecidos e avisa sobre desativações anunciadas. Só contata provedores que você já usa."
     },
     "transcription": {
       "method": "Método",
@@ -328,6 +330,16 @@
         "accept": "Adicionar",
         "reject": "Ocultar"
       }
+    },
+    "models": {
+      "refresh": "Recarregar lista de modelos",
+      "custom": "Modelo personalizado…",
+      "customPlaceholder": "Digite o ID do modelo",
+      "backToList": "Lista",
+      "unavailable": "indisponível",
+      "unavailableHint": "O provedor não oferece mais este modelo. Escolha outro.",
+      "loadFailed": "Não foi possível carregar a lista de modelos – exibindo a lista padrão.",
+      "retiring": "O provedor desativará este modelo em {{date}}. Troque a tempo."
     }
   },
   "errors": {
@@ -340,7 +352,9 @@
     "microphoneUnavailableWindows": "O Windows está a bloquear o acesso ao microfone. Abre as Definições, depois Privacidade & Segurança, e permite ao VOCA o acesso em \"Microfone\".",
     "recordingFailed": "Falha na gravação.",
     "shortcutConflict": "Este atalho já está em uso. Experimenta outro - o VOCA dá-se bem com quase todos.",
-    "aiEnhancementFailed": "Melhoria por IA falhou - foi usado o texto original."
+    "aiEnhancementFailed": "Melhoria por IA falhou - foi usado o texto original.",
+    "modelUnavailable": "O modelo de transcrição não é mais oferecido. Escolha outro nas Configurações.",
+    "quotaExceeded": "Cota, crédito ou limite de solicitações do provedor atingido. Verifique seu plano com o provedor."
   },
   "common": {
     "save": "Guardar",
