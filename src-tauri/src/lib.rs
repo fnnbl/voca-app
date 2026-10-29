@@ -54,6 +54,14 @@ pub struct RecordingGate(pub Mutex<bool>);
 pub struct DownloadCancelFlag(pub Arc<Mutex<bool>>);
 pub struct HotkeyStateWrapper(pub std::sync::Arc<hotkey::HotkeyState>);
 
+/// Process-wide HTTP client. Reusing one client keeps the connection pool
+/// alive between dictations, so back-to-back requests to the same provider
+/// skip the TCP + TLS handshake.
+pub fn http_client() -> &'static reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(reqwest::Client::new)
+}
+
 #[derive(Clone, serde::Serialize)]
 pub struct RecordingStateChangedPayload {
     pub state: AppState,
@@ -86,6 +94,16 @@ pub struct ModelStatus {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // File log in the platform log dir (e.g. %LOCALAPPDATA%\app.voca\logs
+        // on Windows). Only timings, sizes and errors are logged — never
+        // transcript text.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .max_file_size(1_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
+                .build(),
+        )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())

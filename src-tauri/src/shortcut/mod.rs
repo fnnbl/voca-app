@@ -136,8 +136,14 @@ pub fn stop_recording_external(app: &AppHandle) {
 
 fn stop_recording(app: &AppHandle) {
     let audio = app.state::<AudioRecordingState>();
+    let started = std::time::Instant::now();
     match crate::audio::stop(&audio, app) {
         Ok(wav_bytes) => {
+            log::info!(
+                "timing: stop+trim+encode {} ms, wav {} KB",
+                started.elapsed().as_millis(),
+                wav_bytes.len() / 1024
+            );
             restore_ducked_audio(app);
             *app.state::<AudioBuffer>().0.lock().unwrap() = Some(wav_bytes);
             let manager = app.state::<AppStateManager>();
