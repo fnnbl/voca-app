@@ -13,7 +13,6 @@ pub mod stats;
 pub mod storage;
 pub mod target_app;
 pub mod transcription;
-pub mod vad;
 
 use std::sync::{Arc, Mutex};
 use tauri::{

@@ -15,9 +15,6 @@ pub struct AudioRecordingState {
     pub buffer: Arc<Mutex<Vec<f32>>>,
     pub sample_rate: Mutex<u32>,
     pub channels: Mutex<u16>,
-    /// Holds the VAD auto-stop watcher while a recording is active.
-    /// Dropping the value signals the watcher thread to exit.
-    pub auto_stop_watcher: Mutex<Option<crate::vad::AutoStopWatcher>>,
 }
 
 // cpal::Stream is !Send on Linux (ALSA). All access is serialized via Mutex, so this is safe.
@@ -31,7 +28,6 @@ impl AudioRecordingState {
             buffer: Arc::new(Mutex::new(Vec::new())),
             sample_rate: Mutex::new(16000),
             channels: Mutex::new(1),
-            auto_stop_watcher: Mutex::new(None),
         }
     }
 }
@@ -73,49 +69,69 @@ pub fn start(
     let buffer = audio.buffer.clone();
     buffer.lock().unwrap().clear();
 
-    let stream = build_stream(&device, &config, buffer.clone(), app.clone())?;
+    let stream = build_stream(&device, &config, buffer, app.clone())?;
     stream.play().map_err(|e| format!("RECORDING_FAILED: {e}"))?;
 
     *audio.stream.lock().unwrap() = Some(stream);
 
-    let auto_stop_enabled = crate::storage::load(app)
-        .ok()
-        .and_then(|s| s["transcription"]["autoStop"].as_bool())
-        .unwrap_or(false);
-    if auto_stop_enabled {
-        let watcher =
-            crate::vad::start_auto_stop_watcher(app.clone(), buffer, sample_rate, channels);
-        *audio.auto_stop_watcher.lock().unwrap() = Some(watcher);
-    }
-
     Ok(())
 }
 
-pub fn stop(audio: &AudioRecordingState, app: &AppHandle) -> Result<Vec<u8>, String> {
+pub fn stop(audio: &AudioRecordingState) -> Result<Vec<u8>, String> {
     *audio.stream.lock().unwrap() = None;
-    // Drop the watcher first so the worker thread sees the stop_flag on
-    // its next poll and won't fire a redundant stop_recording_external.
-    *audio.auto_stop_watcher.lock().unwrap() = None;
 
     let samples = audio.buffer.lock().unwrap().clone();
     let sample_rate = *audio.sample_rate.lock().unwrap();
     let channels = *audio.channels.lock().unwrap();
 
-    let trim_enabled = crate::storage::load(app)
-        .ok()
-        .and_then(|s| s["transcription"]["trimSilence"].as_bool())
-        .unwrap_or(true);
-    let trimmed = if trim_enabled {
-        crate::vad::trim_silence(&samples, sample_rate, channels)
-    } else {
-        samples
-    };
-
     // Every STT backend works on 16 kHz mono internally. Shipping the
     // device's native format (typically 48 kHz stereo on Windows) only
     // inflates the cloud upload ~6x with no accuracy gain.
-    let mono_16k = crate::vad::resample_to_mono_16k(&trimmed, sample_rate, channels);
+    let mono_16k = resample_to_mono_16k(&samples, sample_rate, channels);
     encode_wav(&mono_16k, 16_000, 1)
+}
+
+/// Down-mix interleaved multi-channel audio and resample to 16 kHz. This
+/// is the format Whisper expects on input.
+///
+/// Integer ratios (48 kHz, 32 kHz) are decimated by block-averaging, which
+/// doubles as a cheap low-pass against aliasing. Other rates (44.1 kHz)
+/// fall back to linear interpolation.
+fn resample_to_mono_16k(samples: &[f32], sample_rate: u32, channels: u16) -> Vec<f32> {
+    let mono: Vec<f32> = if channels > 1 {
+        let ch = channels as usize;
+        samples
+            .chunks(ch)
+            .map(|c| c.iter().sum::<f32>() / ch as f32)
+            .collect()
+    } else {
+        samples.to_vec()
+    };
+
+    if sample_rate == 16_000 {
+        return mono;
+    }
+
+    if sample_rate > 16_000 && sample_rate % 16_000 == 0 {
+        let factor = (sample_rate / 16_000) as usize;
+        return mono
+            .chunks_exact(factor)
+            .map(|c| c.iter().sum::<f32>() / factor as f32)
+            .collect();
+    }
+
+    let ratio = 16_000.0_f32 / sample_rate as f32;
+    let target_len = (mono.len() as f32 * ratio) as usize;
+    (0..target_len)
+        .map(|i| {
+            let src = i as f32 / ratio;
+            let floor = src as usize;
+            let frac = src - floor as f32;
+            let s0 = mono.get(floor).copied().unwrap_or(0.0);
+            let s1 = mono.get(floor + 1).copied().unwrap_or(0.0);
+            s0 + (s1 - s0) * frac
+        })
+        .collect()
 }
 
 fn build_stream(
@@ -294,6 +310,59 @@ mod tests {
             let reconstructed = *dec as f32 / i16::MAX as f32;
             assert!((orig - reconstructed).abs() < 0.001, "sample mismatch: {orig} vs {reconstructed}");
         }
+    }
+
+    #[test]
+    fn resample_mono_16k_is_passthrough() {
+        let input: Vec<f32> = (0..16_000).map(|i| (i as f32 / 16_000.0) * 0.5).collect();
+        let out = resample_to_mono_16k(&input, 16_000, 1);
+        assert_eq!(out.len(), input.len());
+        for (a, b) in input.iter().zip(out.iter()) {
+            assert!((a - b).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn resample_stereo_48k_to_mono_16k() {
+        let input: Vec<f32> = vec![0.5; 48_000 * 2]; // 1 s of constant 0.5 stereo
+        let out = resample_to_mono_16k(&input, 48_000, 2);
+        assert!((out.len() as i64 - 16_000).abs() <= 1);
+        for s in &out[100..out.len() - 100] {
+            assert!((s - 0.5).abs() < 0.05, "expected ~0.5, got {s}");
+        }
+    }
+
+    #[test]
+    fn resample_stereo_mixes_opposite_phase_to_zero() {
+        let mut input: Vec<f32> = Vec::with_capacity(32_000);
+        for _ in 0..16_000 {
+            input.push(0.5);
+            input.push(-0.5);
+        }
+        let out = resample_to_mono_16k(&input, 16_000, 2);
+        for s in &out {
+            assert!(s.abs() < 0.01, "stereo mix should be near zero: {s}");
+        }
+    }
+
+    #[test]
+    fn resample_48k_attenuates_content_above_nyquist() {
+        // 12 kHz tone at 48 kHz aliases to 4 kHz under plain decimation.
+        // Block-averaging over 3 samples attenuates it ~3x.
+        use std::f32::consts::PI;
+        let input: Vec<f32> = (0..48_000)
+            .map(|i| (2.0 * PI * 12_000.0 * i as f32 / 48_000.0).sin() * 0.5)
+            .collect();
+        let out = resample_to_mono_16k(&input, 48_000, 1);
+        assert_eq!(out.len(), 16_000);
+        let rms = (out.iter().map(|s| s * s).sum::<f32>() / out.len() as f32).sqrt();
+        assert!(rms < 0.2, "aliased energy too high: {rms}");
+    }
+
+    #[test]
+    fn resample_empty_input_stays_empty() {
+        let out = resample_to_mono_16k(&[], 44_100, 1);
+        assert!(out.is_empty());
     }
 
     #[test]
